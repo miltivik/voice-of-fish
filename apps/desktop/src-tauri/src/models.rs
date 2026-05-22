@@ -85,8 +85,10 @@ pub struct SystemInfo {
     pub os: String,
     pub cpu: String,
     pub ram_label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gpu: Option<String>,
     pub app_version: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub engine_version: Option<String>,
 }
 
@@ -113,6 +115,7 @@ pub struct LocalModel {
     pub approx_bytes: u64,
     pub recommendation: String,
     pub tokenizer_required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub checksum: Option<String>,
     pub state: ModelState,
 }
@@ -174,9 +177,13 @@ pub struct GenerationRequest {
     pub text: String,
     pub language: String,
     pub model_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub seed: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub voice_preset_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reference_audio_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reference_text: Option<String>,
 }
 
@@ -186,17 +193,26 @@ pub struct GenerationJob {
     pub text: String,
     pub language: String,
     pub model_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub seed: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub voice_preset_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reference_audio_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reference_text: Option<String>,
     pub id: String,
     pub status: GenerationStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub output_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub audio_url: Option<String>,
     pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub completed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_seconds: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
@@ -247,5 +263,110 @@ impl GenerationLogLine {
             message: "Mock engine idle.".to_string(),
             created_at: "2026-05-22T12:00:00.000Z".to_string(),
         }]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        GenerationJob, GenerationRequest, GenerationStatus, LocalModel, ModelQuant, ModelState,
+        SystemInfo,
+    };
+
+    #[test]
+    fn system_info_omits_absent_optional_fields() {
+        let info = SystemInfo {
+            os: "Windows".to_string(),
+            cpu: "Mock local CPU".to_string(),
+            ram_label: "16 GB".to_string(),
+            gpu: None,
+            app_version: "0.1.0".to_string(),
+            engine_version: None,
+        };
+
+        let value = serde_json::to_value(info).expect("system info serializes");
+
+        assert!(value.get("gpu").is_none());
+        assert!(value.get("engineVersion").is_none());
+    }
+
+    #[test]
+    fn local_model_omits_absent_checksum() {
+        let model = LocalModel {
+            id: "s2-q6".to_string(),
+            quant: ModelQuant::Q6,
+            filename: "s2-pro-q6_k.gguf".to_string(),
+            display_size: "4.3 GB".to_string(),
+            approx_bytes: 4_300_000_000,
+            recommendation: "Recommended balance.".to_string(),
+            tokenizer_required: true,
+            checksum: None,
+            state: ModelState::Installed,
+        };
+
+        let value = serde_json::to_value(model).expect("model serializes");
+
+        assert!(value.get("checksum").is_none());
+    }
+
+    #[test]
+    fn generation_job_omits_absent_optional_fields() {
+        let job = GenerationJob {
+            text: "hello fish".to_string(),
+            language: "en".to_string(),
+            model_id: "s2-q6".to_string(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+            id: "mock-job-1".to_string(),
+            status: GenerationStatus::Completed,
+            output_path: None,
+            audio_url: None,
+            created_at: "2026-05-22T12:00:00.000Z".to_string(),
+            completed_at: None,
+            duration_seconds: None,
+            error: None,
+        };
+
+        let value = serde_json::to_value(job).expect("job serializes");
+
+        for field in [
+            "seed",
+            "voicePresetId",
+            "referenceAudioPath",
+            "referenceText",
+            "outputPath",
+            "audioUrl",
+            "completedAt",
+            "durationSeconds",
+            "error",
+        ] {
+            assert!(value.get(field).is_none(), "{field} should be omitted");
+        }
+    }
+
+    #[test]
+    fn generation_request_omits_absent_optional_fields() {
+        let request = GenerationRequest {
+            text: "hello fish".to_string(),
+            language: "en".to_string(),
+            model_id: "s2-q6".to_string(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+
+        let value = serde_json::to_value(request).expect("request serializes");
+
+        for field in [
+            "seed",
+            "voicePresetId",
+            "referenceAudioPath",
+            "referenceText",
+        ] {
+            assert!(value.get(field).is_none(), "{field} should be omitted");
+        }
     }
 }
