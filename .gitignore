@@ -1,1 +1,10 @@
 .worktrees/
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+apps/desktop/src-tauri/target/
+*.log

@@ -1,0 +1,13 @@
+{
+  "name": "voice-of-fish",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "dev": "pnpm --filter @voice-of-fish/desktop tauri dev",
+    "build": "pnpm --filter @voice-of-fish/desktop tauri build",
+    "lint": "pnpm --filter @voice-of-fish/desktop lint",
+    "format": "pnpm --filter @voice-of-fish/desktop format",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @voice-of-fish/desktop test:e2e"
+  }
+}
