@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ModelManifestEntry } from "@voice-of-fish/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,14 @@ export function ModelCard({
   onSetActive: () => void;
 }) {
   const installed = model.state === "installed";
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const handleDeleteRequest = () => setConfirmingDelete(true);
+  const handleDeleteConfirm = () => {
+    setConfirmingDelete(false);
+    onDelete();
+  };
+  const handleDeleteCancel = () => setConfirmingDelete(false);
 
   return (
     <article className="rounded-lg border border-line bg-panel p-4">
@@ -32,9 +41,20 @@ export function ModelCard({
                 Set active
               </Button>
             )}
-            <Button variant="danger" size="sm" onClick={onDelete}>
-              Delete
-            </Button>
+            {confirmingDelete ? (
+              <div className="flex items-center gap-1">
+                <Button variant="danger" size="sm" onClick={handleDeleteConfirm}>
+                  Confirm
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleDeleteCancel}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button variant="danger" size="sm" onClick={handleDeleteRequest}>
+                Delete
+              </Button>
+            )}
           </div>
         )}
       </div>

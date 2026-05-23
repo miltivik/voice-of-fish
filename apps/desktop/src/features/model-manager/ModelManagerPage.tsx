@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ModelManifestEntry } from "@voice-of-fish/shared";
 import { toast } from "sonner";
 import { ModelCard } from "@/components/model/ModelCard";
 import { studioClient } from "@/lib/tauri";
@@ -29,14 +30,44 @@ export function ModelManagerPage() {
 
   const remove = useMutation({
     mutationFn: studioClient.deleteModel,
-    onSuccess: (next) => {
+    onSuccess: (next, deletedModelId) => {
       sync(next);
       toast.success("Model removed");
+      if (activeModelId === deletedModelId) {
+        const installed = (next as ModelManifestEntry[]).find(
+          (m) => m.state === "installed",
+        );
+        if (installed) {
+          setActiveModelId(installed.id);
+        }
+      }
     },
     onError: () => {
       toast.error("Failed to remove model");
     },
   });
+
+  if (models.isLoading) {
+    return (
+      <section className="space-y-5">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-normal">Models</h1>
+        </div>
+        <p className="text-sm text-muted">Loading model catalog…</p>
+      </section>
+    );
+  }
+
+  if (models.isError) {
+    return (
+      <section className="space-y-5">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-normal">Models</h1>
+        </div>
+        <p className="text-sm text-danger">Failed to load model catalog.</p>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-5">

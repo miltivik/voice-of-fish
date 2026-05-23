@@ -33,14 +33,21 @@ export function DashboardPage() {
           <Badge>Mock engine idle</Badge>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted">
-            {diagnostics.data?.os ?? "Loading OS"} /{" "}
-            {diagnostics.data?.ramLabel ?? "Loading RAM"}
-          </p>
-          <p className="text-sm text-muted">
-            {installed} model quant{installed === 1 ? "" : "s"} installed.
-          </p>
-          <Progress value={installed * 25} aria-label="Engine readiness" />
+          {diagnostics.isLoading || models.isLoading ? (
+            <p className="text-sm text-muted">Loading system status…</p>
+          ) : diagnostics.isError || models.isError ? (
+            <p className="text-sm text-danger">Failed to load engine data.</p>
+          ) : (
+            <>
+              <p className="text-sm text-muted">
+                {diagnostics.data?.os ?? "?"} / {diagnostics.data?.ramLabel ?? "?"}
+              </p>
+              <p className="text-sm text-muted">
+                {installed} model quant{installed === 1 ? "" : "s"} installed.
+              </p>
+              <Progress value={installed * 25} aria-label="Engine readiness" />
+            </>
+          )}
         </CardContent>
       </Card>
 
