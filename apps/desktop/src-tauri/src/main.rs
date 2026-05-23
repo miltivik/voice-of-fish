@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use voice_of_fish_desktop::config::ConfigStore;
 use voice_of_fish_desktop::process::ProcessManager;
 
 fn main() {
@@ -8,6 +9,7 @@ fn main() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .manage(Mutex::new(ConfigStore::new()))
         .manage(Mutex::new(ProcessManager::mock_with_logs()))
         .invoke_handler(tauri::generate_handler![
             voice_of_fish_desktop::commands::get_system_info,
@@ -19,7 +21,8 @@ fn main() {
             voice_of_fish_desktop::commands::run_generation,
             voice_of_fish_desktop::commands::cancel_generation,
             voice_of_fish_desktop::commands::read_generation_logs,
-            voice_of_fish_desktop::commands::open_output_folder
+            voice_of_fish_desktop::commands::open_output_folder,
+            voice_of_fish_desktop::commands::check_binary_exists,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Voice of Fish desktop");

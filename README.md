@@ -4,7 +4,7 @@ Local voice generation studio desktop app powered by s2.cpp. Compose script text
 
 ## Status
 
-**Mock-first slice** — complete UI surface with local mock data contracts, Zustand stores, TanStack Query state, and Tauri command stubs. Real `s2.cpp` engine integration, Hugging Face model downloads, checksum verification, and persistent history/presets are outside the current scope. All UI and command boundaries are wired and ready for engine handoff.
+**Partial-real slice** — Configuration persistence and system diagnostics are now real (Tauri commands with actual sysinfo, path validation, binary detection). Model downloads, generation, and voice cloning remain in mock mode. The UI is wired to swap in real engine commands once s2.cpp flags are validated.
 
 **Windows-first** — the desktop app targets Windows for the initial slice. Linux and macOS binary directories exist with tracked `.gitkeep` files. Tauri config, Rust crates, and build hooks follow cross-platform conventions.
 

@@ -90,6 +90,8 @@ pub struct SystemInfo {
     pub app_version: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub engine_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binary_found: Option<bool>,
 }
 
 impl SystemInfo {
@@ -101,6 +103,7 @@ impl SystemInfo {
             gpu: Some("Detect through Tauri later".to_string()),
             app_version: "0.1.0".to_string(),
             engine_version: None,
+            binary_found: Some(false),
         }
     }
 }
@@ -282,12 +285,14 @@ mod tests {
             gpu: None,
             app_version: "0.1.0".to_string(),
             engine_version: None,
+            binary_found: None,
         };
 
         let value = serde_json::to_value(info).expect("system info serializes");
 
         assert!(value.get("gpu").is_none());
         assert!(value.get("engineVersion").is_none());
+        assert!(value.get("binaryFound").is_none());
     }
 
     #[test]

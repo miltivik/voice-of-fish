@@ -1,4 +1,4 @@
-use crate::config;
+use crate::config::{get_default_config, ConfigStore};
 use crate::diagnostics;
 use crate::downloads;
 use crate::models::{
@@ -10,17 +10,29 @@ use tauri::State;
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_system_info() -> SystemInfo {
-    diagnostics::get_mock_system_info()
+    diagnostics::get_real_system_info()
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn get_app_config() -> AppConfig {
-    config::get_mock_config()
+pub fn get_app_config(
+    config_store: State<'_, Mutex<ConfigStore>>,
+) -> AppConfig {
+    config_store
+        .lock()
+        .ok()
+        .and_then(|guard| guard.get_config())
+        .unwrap_or_else(get_default_config)
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn save_app_config(config: AppConfig) -> AppConfig {
-    config::save_mock_config(config)
+pub fn save_app_config(
+    config: AppConfig,
+    config_store: State<'_, Mutex<ConfigStore>>,
+) -> AppConfig {
+    if let Ok(guard) = config_store.lock() {
+        guard.set_config(config.clone());
+    }
+    config
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -80,4 +92,28 @@ pub fn read_generation_logs(
 pub fn open_output_folder(path: String) -> bool {
     let _ = path;
     true
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn check_binary_exists(binary_path: String) -> bool {
+    if binary_path.is_empty() {
+        return false;
+    }
+    std::path::Path::new(&binary_path).is_file()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_binary_exists_detects_nonexistent() {
+        assert!(!check_binary_exists("C:\\nonexistent\\path\\s2.exe".to_string()));
+        assert!(!check_binary_exists("".to_string()));
+    }
+
+    #[test]
+    fn check_binary_exists_returns_false_for_empty() {
+        assert!(!check_binary_exists("".to_string()));
+    }
 }

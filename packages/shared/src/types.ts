@@ -87,6 +87,7 @@ export interface SystemInfo {
   gpu?: string;
   appVersion: string;
   engineVersion?: string;
+  binaryFound?: boolean;
 }
 
 export interface ProcessLogLine {

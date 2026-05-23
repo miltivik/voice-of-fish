@@ -32,6 +32,7 @@ const systemInfo: SystemInfo = {
   ramLabel: "16 GB",
   gpu: "Detect through Tauri later",
   appVersion: "0.1.0",
+  binaryFound: false,
 };
 
 const logs: ProcessLogLine[] = [

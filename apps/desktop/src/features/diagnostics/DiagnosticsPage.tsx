@@ -1,16 +1,25 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProcessLogPanel } from "@/components/logs/ProcessLogPanel";
-import { studioClient } from "@/lib/tauri";
+import { tauriClient, checkBinaryExists } from "@/lib/tauri";
 
 export function DiagnosticsPage() {
   const info = useQuery({
     queryKey: ["system-info"],
-    queryFn: studioClient.getSystemInfo,
+    queryFn: async () => {
+      const [systemInfo, config] = await Promise.all([
+        tauriClient.getSystemInfo(),
+        tauriClient.getAppConfig(),
+      ]);
+      const binaryFound = config?.binaryPath
+        ? await checkBinaryExists(config.binaryPath)
+        : false;
+      return { ...systemInfo, binaryFound };
+    },
   });
   const logs = useQuery({
     queryKey: ["generation-logs"],
-    queryFn: () => studioClient.readGenerationLogs(),
+    queryFn: () => tauriClient.readGenerationLogs(),
   });
 
   return (
@@ -41,6 +50,18 @@ export function DiagnosticsPage() {
                 App: {info.data?.appVersion}
                 {info.data?.engineVersion &&
                   ` / Engine: ${info.data.engineVersion}`}
+              </p>
+              <p className="text-sm text-muted">
+                Binary:{" "}
+                <span
+                  className={
+                    info.data?.binaryFound
+                      ? "text-accent"
+                      : "text-danger"
+                  }
+                >
+                  {info.data?.binaryFound ? "Found" : "Missing"}
+                </span>
               </p>
             </>
           )}
