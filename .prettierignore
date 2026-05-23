@@ -1,0 +1,14 @@
+# Build artifacts
+apps/desktop/dist
+apps/desktop/src-tauri/target
+apps/desktop/src-tauri/gen
+
+# Test reports
+apps/desktop/test-results
+apps/desktop/playwright-report
+
+# Lockfiles (not formatted)
+pnpm-lock.yaml
+
+# Node modules
+node_modules
