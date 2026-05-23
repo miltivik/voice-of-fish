@@ -5,7 +5,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["coverage", "dist", "node_modules", "playwright-report", "test-results"],
+    ignores: ["coverage", "dist", "node_modules", "playwright-report", "test-results", "src-tauri/target", "e2e"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
