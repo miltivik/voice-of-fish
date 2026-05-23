@@ -13,7 +13,7 @@ export function GenerationPage() {
           <CardTitle>Prompt draft</CardTitle>
         </CardHeader>
         <CardContent>
-          <Textarea disabled defaultValue="Generation pipeline arrives in later task." />
+          <Textarea aria-label="Prompt draft" disabled defaultValue="Generation pipeline arrives in later task." />
         </CardContent>
       </Card>
     </section>
