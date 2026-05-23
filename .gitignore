@@ -8,3 +8,4 @@ playwright-report/
 test-results/
 apps/desktop/src-tauri/target/
 *.log
+.vite-inspect/
