@@ -16,7 +16,9 @@ describe("GenerationPage", () => {
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
 
     const resultSection = screen.getByText("Result").closest("section")!;
-    expect(await within(resultSection).findByText(/generation completed/i)).toBeVisible();
+    expect(
+      await within(resultSection).findByText(/generation completed/i),
+    ).toBeVisible();
     expect(screen.getByRole("button", { name: /export wav/i })).toBeEnabled();
   });
 });

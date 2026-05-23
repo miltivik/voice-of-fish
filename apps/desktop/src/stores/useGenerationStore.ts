@@ -1,4 +1,7 @@
-import type { GenerationRequest, GenerationStatus } from "@voice-of-fish/shared";
+import type {
+  GenerationRequest,
+  GenerationStatus,
+} from "@voice-of-fish/shared";
 import { create } from "zustand";
 import { insertTagAtSelection } from "@/lib/tag-editor";
 
@@ -22,7 +25,8 @@ export const useGenerationStore = create<GenerationState>((set) => ({
   draft: { ...initialDraft },
   status: "idle",
   setText: (text) => set((state) => ({ draft: { ...state.draft, text } })),
-  patchDraft: (patch) => set((state) => ({ draft: { ...state.draft, ...patch } })),
+  patchDraft: (patch) =>
+    set((state) => ({ draft: { ...state.draft, ...patch } })),
   insertTag: (tag, start, end) =>
     set((state) => ({
       draft: {

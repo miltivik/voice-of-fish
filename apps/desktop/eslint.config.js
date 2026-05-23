@@ -5,7 +5,15 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["coverage", "dist", "node_modules", "playwright-report", "test-results", "src-tauri/target", "e2e"],
+    ignores: [
+      "coverage",
+      "dist",
+      "node_modules",
+      "playwright-report",
+      "test-results",
+      "src-tauri/target",
+      "e2e",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -26,7 +34,10 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "no-undef": "off",
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true },
+      ],
     },
   },
 );

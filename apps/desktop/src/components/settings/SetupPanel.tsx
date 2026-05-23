@@ -8,14 +8,23 @@ import { Input } from "@/components/ui/input";
 
 type SetupValues = z.infer<typeof setupSchema>;
 
-export function SetupPanel({ onSave }: { onSave: (config: AppConfig) => void }) {
+export function SetupPanel({
+  onSave,
+}: {
+  onSave: (config: AppConfig) => void;
+}) {
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<SetupValues>({
     resolver: zodResolver(setupSchema),
-    defaultValues: { mode: "simple", binaryPath: "", modelsPath: "", outputsPath: "" },
+    defaultValues: {
+      mode: "simple",
+      binaryPath: "",
+      modelsPath: "",
+      outputsPath: "",
+    },
   });
 
   const save = (values: SetupValues) =>

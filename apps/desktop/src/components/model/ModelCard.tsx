@@ -43,7 +43,11 @@ export function ModelCard({
             )}
             {confirmingDelete ? (
               <div className="flex items-center gap-1">
-                <Button variant="danger" size="sm" onClick={handleDeleteConfirm}>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleDeleteConfirm}
+                >
                   Confirm
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleDeleteCancel}>

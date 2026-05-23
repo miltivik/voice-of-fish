@@ -14,7 +14,9 @@ export function VoiceCloningPage() {
       setPreviewUrl(null);
     }
     if (!file) return;
-    const parsed = voicePresetSchema.shape.referenceFileName.safeParse(file.name);
+    const parsed = voicePresetSchema.shape.referenceFileName.safeParse(
+      file.name,
+    );
     if (!parsed.success) {
       setMessage(parsed.error.issues[0].message);
       return;

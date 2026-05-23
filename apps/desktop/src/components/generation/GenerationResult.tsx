@@ -11,9 +11,7 @@ export function GenerationResult({ job }: { job: GenerationJob }) {
         Output: {job.outputPath ?? "Pending"}
       </p>
       {job.durationSeconds != null && (
-        <p className="text-xs text-muted">
-          Duration: {job.durationSeconds}s
-        </p>
+        <p className="text-xs text-muted">Duration: {job.durationSeconds}s</p>
       )}
       <AudioWaveform audioUrl={job.audioUrl} outputPath={job.outputPath} />
       <Button disabled={!job.outputPath}>Export WAV</Button>

@@ -11,8 +11,8 @@ describe("insertTagAtSelection", () => {
   });
 
   it("replaces selected text with a tag", () => {
-    expect(insertTagAtSelection("Hello loud world", "[whisper]", 6, 10).text).toBe(
-      "Hello [whisper] world",
-    );
+    expect(
+      insertTagAtSelection("Hello loud world", "[whisper]", 6, 10).text,
+    ).toBe("Hello [whisper] world");
   });
 });

@@ -9,8 +9,14 @@ describe("SetupPanel", () => {
     render(<SetupPanel onSave={onSave} />);
 
     await user.type(screen.getByLabelText(/s2\.cpp binary/i), "C:\\s2\\s2.exe");
-    await user.type(screen.getByLabelText(/models folder/i), "C:\\voice-of-fish\\models");
-    await user.type(screen.getByLabelText(/outputs folder/i), "C:\\voice-of-fish\\outputs");
+    await user.type(
+      screen.getByLabelText(/models folder/i),
+      "C:\\voice-of-fish\\models",
+    );
+    await user.type(
+      screen.getByLabelText(/outputs folder/i),
+      "C:\\voice-of-fish\\outputs",
+    );
     await user.click(screen.getByRole("button", { name: /save setup/i }));
 
     expect(onSave).toHaveBeenCalledWith(

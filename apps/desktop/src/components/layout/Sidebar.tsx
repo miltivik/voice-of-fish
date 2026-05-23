@@ -24,8 +24,12 @@ export function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-10 flex w-64 flex-col border-r border-line bg-panel">
       <div className="border-b border-line px-5 py-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted">Voice of Fish</p>
-        <p className="mt-1 text-sm font-semibold text-studio-foreground">Studio Workbench</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted">
+          Voice of Fish
+        </p>
+        <p className="mt-1 text-sm font-semibold text-studio-foreground">
+          Studio Workbench
+        </p>
       </div>
       <nav aria-label="Primary" className="flex flex-1 flex-col gap-1 p-3">
         {routes.map(({ label, to, icon: Icon }) => (

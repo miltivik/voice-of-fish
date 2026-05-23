@@ -29,7 +29,9 @@ export function SettingsPage() {
             <span className="text-muted">{config.modelsPath}</span>
           </div>
           <div className="text-sm">
-            <span className="font-medium text-studio-foreground">Outputs: </span>
+            <span className="font-medium text-studio-foreground">
+              Outputs:{" "}
+            </span>
             <span className="text-muted">{config.outputsPath}</span>
           </div>
         </CardContent>
@@ -49,7 +51,9 @@ export function SettingsPage() {
             <span className="text-muted">{config.defaultAudioFormat}</span>
           </div>
           <div className="text-sm">
-            <span className="font-medium text-studio-foreground">CPU threads: </span>
+            <span className="font-medium text-studio-foreground">
+              CPU threads:{" "}
+            </span>
             <span className="text-muted">{config.cpuThreads}</span>
           </div>
           <div className="text-sm">

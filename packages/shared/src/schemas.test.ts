@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { STYLE_TAGS, S2_MODEL_MANIFEST } from "./constants";
-import { generationRequestSchema, settingsSchema, setupSchema, voicePresetSchema } from "./schemas";
+import {
+  generationRequestSchema,
+  settingsSchema,
+  setupSchema,
+  voicePresetSchema,
+} from "./schemas";
 
 describe("shared schemas", () => {
   it("accepts configured setup paths and mode", () => {
@@ -90,7 +95,12 @@ describe("shared schemas", () => {
   });
 
   it("defines first model quants and insertion tags", () => {
-    expect(S2_MODEL_MANIFEST.map((model) => model.quant)).toEqual(["Q8", "Q6", "Q5", "Q4"]);
+    expect(S2_MODEL_MANIFEST.map((model) => model.quant)).toEqual([
+      "Q8",
+      "Q6",
+      "Q5",
+      "Q4",
+    ]);
     expect(STYLE_TAGS).toContain("[professional broadcast tone]");
   });
 });

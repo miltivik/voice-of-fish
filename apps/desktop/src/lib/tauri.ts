@@ -29,17 +29,21 @@ export const tauriClient: StudioClient = {
   listLocalModels: () => invoke<ModelManifestEntry[]>("list_local_models"),
   downloadModel: (modelId) =>
     invoke<ModelManifestEntry[]>("download_model", { modelId }),
-  deleteModel: (modelId) => invoke<ModelManifestEntry[]>("delete_model", { modelId }),
-  runGeneration: (request) => invoke<GenerationJob>("run_generation", { request }),
+  deleteModel: (modelId) =>
+    invoke<ModelManifestEntry[]>("delete_model", { modelId }),
+  runGeneration: (request) =>
+    invoke<GenerationJob>("run_generation", { request }),
   cancelGeneration: (jobId) => invoke<boolean>("cancel_generation", { jobId }),
   readGenerationLogs: (jobId) =>
     invoke<ProcessLogLine[]>("read_generation_logs", { jobId }),
   openOutputFolder: (path) => invoke<boolean>("open_output_folder", { path }),
 };
 
-const env = (import.meta as ImportMeta & {
-  env?: { VITE_USE_TAURI_MOCKS?: string };
-}).env;
+const env = (
+  import.meta as ImportMeta & {
+    env?: { VITE_USE_TAURI_MOCKS?: string };
+  }
+).env;
 
 export const studioClient =
   env?.VITE_USE_TAURI_MOCKS === "false" ? tauriClient : mockClient;

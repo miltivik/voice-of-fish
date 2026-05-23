@@ -1,4 +1,7 @@
-import { MOCK_HISTORY, S2_MODEL_MANIFEST } from "@voice-of-fish/shared/constants";
+import {
+  MOCK_HISTORY,
+  S2_MODEL_MANIFEST,
+} from "@voice-of-fish/shared/constants";
 import type {
   AppConfig,
   GenerationJob,

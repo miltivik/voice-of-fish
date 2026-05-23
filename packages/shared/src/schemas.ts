@@ -6,7 +6,8 @@ const referenceFile = z
   .regex(/\.(wav|mp3|flac)$/i, "Reference file must be wav, mp3, or flac.");
 const advancedArg = z.union([z.string(), z.number(), z.boolean()]);
 const optionalSeed = z.preprocess(
-  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
   z.coerce.number().int().optional(),
 );
 

@@ -19,8 +19,6 @@ describe("ModelManagerPage", () => {
       within(getQ5Card()).getByRole("button", { name: /download q5/i }),
     );
 
-    expect(
-      await within(getQ5Card()).findByText(/q5 installed/i),
-    ).toBeVisible();
+    expect(await within(getQ5Card()).findByText(/q5 installed/i)).toBeVisible();
   });
 });

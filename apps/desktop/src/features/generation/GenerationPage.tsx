@@ -98,9 +98,16 @@ export function GenerationPage() {
           <CardTitle>Generation request</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-4"
+          >
             <div className="space-y-1">
-              <label htmlFor="script-text" className="text-sm font-medium text-studio-foreground">
+              <label
+                htmlFor="script-text"
+                className="text-sm font-medium text-studio-foreground"
+              >
                 Script text
               </label>
               <Textarea
@@ -121,12 +128,17 @@ export function GenerationPage() {
             <StyleTagBar
               textareaRef={textareaRef}
               getValue={() => getValues("text")}
-              onChange={(text) => setValue("text", text, { shouldValidate: true })}
+              onChange={(text) =>
+                setValue("text", text, { shouldValidate: true })
+              }
             />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1">
-                <label htmlFor="model" className="text-sm font-medium text-studio-foreground">
+                <label
+                  htmlFor="model"
+                  className="text-sm font-medium text-studio-foreground"
+                >
                   Model
                 </label>
                 <select
@@ -143,7 +155,10 @@ export function GenerationPage() {
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="language" className="text-sm font-medium text-studio-foreground">
+                <label
+                  htmlFor="language"
+                  className="text-sm font-medium text-studio-foreground"
+                >
                   Language
                 </label>
                 <select
@@ -162,7 +177,10 @@ export function GenerationPage() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1">
-                <label htmlFor="seed" className="text-sm font-medium text-studio-foreground">
+                <label
+                  htmlFor="seed"
+                  className="text-sm font-medium text-studio-foreground"
+                >
                   Seed (optional)
                 </label>
                 <Input
@@ -174,7 +192,10 @@ export function GenerationPage() {
               </div>
 
               <div className="space-y-1">
-                <label htmlFor="voice" className="text-sm font-medium text-studio-foreground">
+                <label
+                  htmlFor="voice"
+                  className="text-sm font-medium text-studio-foreground"
+                >
                   Voice preset (optional)
                 </label>
                 <select
@@ -192,7 +213,10 @@ export function GenerationPage() {
                 <p className="text-xs font-medium uppercase tracking-wide text-muted">
                   {status}
                 </p>
-                <Progress value={STATUS_PROGRESS[status] ?? 0} aria-label="Generation progress" />
+                <Progress
+                  value={STATUS_PROGRESS[status] ?? 0}
+                  aria-label="Generation progress"
+                />
               </div>
             )}
 
@@ -219,7 +243,10 @@ export function GenerationPage() {
           <CardTitle>Recent generations</CardTitle>
         </CardHeader>
         <CardContent>
-          <RecentGenerations history={MOCK_HISTORY} completedJob={completedJob} />
+          <RecentGenerations
+            history={MOCK_HISTORY}
+            completedJob={completedJob}
+          />
         </CardContent>
       </Card>
     </section>

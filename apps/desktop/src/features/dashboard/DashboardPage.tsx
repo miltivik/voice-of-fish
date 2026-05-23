@@ -40,7 +40,8 @@ export function DashboardPage() {
           ) : (
             <>
               <p className="text-sm text-muted">
-                {diagnostics.data?.os ?? "?"} / {diagnostics.data?.ramLabel ?? "?"}
+                {diagnostics.data?.os ?? "?"} /{" "}
+                {diagnostics.data?.ramLabel ?? "?"}
               </p>
               <p className="text-sm text-muted">
                 {installed} model quant{installed === 1 ? "" : "s"} installed.
@@ -56,9 +57,7 @@ export function DashboardPage() {
           <CardTitle>Last generation</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="text-sm text-muted">
-            {MOCK_HISTORY[0].outputPath}
-          </p>
+          <p className="text-sm text-muted">{MOCK_HISTORY[0].outputPath}</p>
           <p className="text-xs text-muted">
             Model: {MOCK_HISTORY[0].modelId} &middot; Duration:{" "}
             {MOCK_HISTORY[0].durationSeconds}s

@@ -1,8 +1,17 @@
 export type AppMode = "simple" | "advanced";
 export type AudioFormat = "wav";
 export type ModelQuant = "Q8" | "Q6" | "Q5" | "Q4";
-export type ModelState = "not-installed" | "downloading" | "installed" | "error";
-export type GenerationStatus = "idle" | "preparing" | "generating" | "completed" | "failed";
+export type ModelState =
+  | "not-installed"
+  | "downloading"
+  | "installed"
+  | "error";
+export type GenerationStatus =
+  | "idle"
+  | "preparing"
+  | "generating"
+  | "completed"
+  | "failed";
 
 export interface AppConfig {
   mode: AppMode;

@@ -19,15 +19,15 @@ Local voice generation studio desktop app powered by s2.cpp. Compose script text
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `pnpm install` | Install all workspace dependencies |
-| `pnpm dev` | Start Tauri dev mode (Vite + Rust) |
-| `pnpm build` | Build Tauri desktop application |
-| `pnpm lint` | Lint desktop app (ESLint) |
-| `pnpm format` | Format workspace (Prettier) |
-| `pnpm test` | Run all Vitest unit/component tests |
-| `pnpm test:e2e` | Run Playwright browser E2E tests |
+| Command         | Description                         |
+| --------------- | ----------------------------------- |
+| `pnpm install`  | Install all workspace dependencies  |
+| `pnpm dev`      | Start Tauri dev mode (Vite + Rust)  |
+| `pnpm build`    | Build Tauri desktop application     |
+| `pnpm lint`     | Lint desktop app (ESLint)           |
+| `pnpm format`   | Format workspace (Prettier)         |
+| `pnpm test`     | Run all Vitest unit/component tests |
+| `pnpm test:e2e` | Run Playwright browser E2E tests    |
 
 ## Workspace
 

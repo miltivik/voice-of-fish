@@ -1,5 +1,9 @@
 import * as ProgressPrimitive from "@radix-ui/react-progress";
-import { type ComponentPropsWithoutRef, type ElementRef, forwardRef } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  type ElementRef,
+  forwardRef,
+} from "react";
 import { cn } from "@/lib/utils";
 
 function clampProgressValue(value: number | null | undefined) {
@@ -24,7 +28,10 @@ export const Progress = forwardRef<
   return (
     <ProgressPrimitive.Root
       ref={ref}
-      className={cn("relative h-2 w-full overflow-hidden rounded bg-line", className)}
+      className={cn(
+        "relative h-2 w-full overflow-hidden rounded bg-line",
+        className,
+      )}
       value={clampedValue}
       {...props}
     >
