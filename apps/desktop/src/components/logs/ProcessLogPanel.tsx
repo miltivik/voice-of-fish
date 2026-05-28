@@ -15,6 +15,11 @@ export function ProcessLogPanel({ lines }: { lines: ProcessLogLine[] }) {
           <span className="mt-px shrink-0 rounded px-1 py-px font-mono text-[10px] uppercase ring-1 ring-inset ring-line text-muted">
             {line.stream}
           </span>
+          {/*
+           * Defense-in-depth: log messages are sanitized server-side (ANSI strip + length limit),
+           * and here we render as JSX text content (not dangerouslySetInnerHTML), so any
+           * residual control characters or malicious content cannot execute as HTML/script.
+           */}
           <span className="text-studio-foreground">{line.message}</span>
           <span className="ml-auto shrink-0 text-muted">
             {new Date(line.createdAt).toLocaleTimeString()}

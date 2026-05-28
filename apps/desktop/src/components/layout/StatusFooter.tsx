@@ -6,6 +6,7 @@ const statusLabels = {
   preparing: "Preparing",
   generating: "Generating",
   completed: "Completed",
+  cancelled: "Cancelled",
   failed: "Failed",
   error: "Error",
 } as const;

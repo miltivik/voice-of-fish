@@ -1,3 +1,5 @@
+import { listen } from "@tauri-apps/api/event";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ModelManifestEntry } from "@voice-of-fish/shared";
 import { toast } from "sonner";
@@ -10,20 +12,50 @@ export function ModelManagerPage() {
   const activeModelId = useModelStore((state) => state.activeModelId);
   const setActiveModelId = useModelStore((state) => state.setActiveModelId);
 
+  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let unlistenFn: (() => void) | undefined;
+    listen<{ modelId: string; downloaded: number; total: number }>(
+      "download-progress",
+      (event) => {
+        setDownloadProgress((prev) => ({
+          ...prev,
+          [event.payload.modelId]: event.payload.downloaded / event.payload.total,
+        }));
+      },
+    )
+      .then((fn) => { unlistenFn = fn; })
+      .catch(() => {
+        // Tauri runtime not available (e.g., in tests without Tauri mock)
+      });
+    return () => { unlistenFn?.(); };
+  }, []);
+
+  const clearProgress = (modelId: string) => {
+    setDownloadProgress((prev) => {
+      const next = { ...prev };
+      delete next[modelId];
+      return next;
+    });
+  };
+
   const models = useQuery({
     queryKey: ["models"],
     queryFn: studioClient.listLocalModels,
   });
 
-  const sync = (next: unknown) => queryClient.setQueryData(["models"], next);
+  const sync = (next: ModelManifestEntry[]) => queryClient.setQueryData(["models"], next);
 
   const download = useMutation({
     mutationFn: studioClient.downloadModel,
     onSuccess: (next, modelId) => {
       sync(next);
+      clearProgress(modelId);
       toast.success(`${modelId.toUpperCase()} installed`);
     },
     onError: (_, modelId) => {
+      clearProgress(modelId);
       toast.error(`Failed to install ${modelId.toUpperCase()}`);
     },
   });
@@ -74,7 +106,7 @@ export function ModelManagerPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-normal">Models</h1>
         <p className="mt-1 text-sm text-muted">
-          GGUF model manager mock state.
+          Manage installed GGUF models.
         </p>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
@@ -86,6 +118,7 @@ export function ModelManagerPage() {
             onDownload={() => download.mutate(model.id)}
             onDelete={() => remove.mutate(model.id)}
             onSetActive={() => setActiveModelId(model.id)}
+            progress={downloadProgress[model.id]}
           />
         ))}
       </div>

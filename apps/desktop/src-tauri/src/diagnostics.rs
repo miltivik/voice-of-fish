@@ -24,17 +24,8 @@ pub fn get_real_system_info() -> SystemInfo {
     let total_memory = sys.total_memory();
     let ram_label = format_ram(total_memory);
 
-    let gpu = sys
-        .cpus()
-        .first()
-        .and_then(|c| {
-            let brand = c.brand();
-            if brand.contains("NVIDIA") || brand.contains("AMD") || brand.contains("Intel") {
-                Some(brand.trim().to_string())
-            } else {
-                None
-            }
-        });
+    // sysinfo does not reliably enumerate GPUs; leave as None for now.
+    let gpu: Option<String> = None;
 
     let app_version = env!("CARGO_PKG_VERSION").to_string();
 

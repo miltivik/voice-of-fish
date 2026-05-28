@@ -8,7 +8,7 @@ const advancedArg = z.union([z.string(), z.number(), z.boolean()]);
 const optionalSeed = z.preprocess(
   (value) =>
     typeof value === "string" && value.trim() === "" ? undefined : value,
-  z.coerce.number().int().optional(),
+  z.coerce.number().int().min(0).max(2_147_483_647).optional(),
 );
 
 export const setupSchema = z.object({

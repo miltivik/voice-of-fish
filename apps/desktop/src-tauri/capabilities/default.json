@@ -3,5 +3,17 @@
   "identifier": "default",
   "description": "Default desktop permissions",
   "windows": ["main"],
-  "permissions": []
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-message",
+    "dialog:allow-ask",
+    "fs:default",
+    "fs:allow-exists",
+    "shell:default",
+    "shell:allow-open",
+    "store:default"
+  ]
 }

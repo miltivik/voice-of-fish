@@ -1,22 +1,32 @@
-import { MOCK_HISTORY } from "@voice-of-fish/shared/constants";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { studioClient } from "@/lib/tauri";
 
 export function HistoryPage() {
+  const history = useQuery({
+    queryKey: ["history"],
+    queryFn: () => studioClient.listGenerationHistory(),
+  });
+
   return (
     <section className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-normal">History</h1>
         <p className="mt-1 text-sm text-muted">
-          Generation history from local mock output.
+          Generation history from local output.
         </p>
       </div>
 
-      {MOCK_HISTORY.length === 0 ? (
+      {history.isLoading ? (
+        <p className="text-sm text-muted">Loading history…</p>
+      ) : history.isError ? (
+        <p className="text-sm text-danger">Failed to load history.</p>
+      ) : (history.data?.length ?? 0) === 0 ? (
         <p className="text-sm text-muted">No generation history recorded.</p>
       ) : (
         <div className="space-y-3">
-          {MOCK_HISTORY.map((record) => (
+          {history.data!.map((record) => (
             <Card key={record.id}>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="line-clamp-1">{record.text}</CardTitle>

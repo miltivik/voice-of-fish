@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Voice of Fish
+Comment=Local voice generation studio powered by s2.cpp
+Exec=voice-of-fish-desktop %U
+Icon=voice-of-fish
+Terminal=false
+Categories=AudioVideo;Audio;Utility;
+StartupNotify=true
+StartupWMClass=Voice of Fish

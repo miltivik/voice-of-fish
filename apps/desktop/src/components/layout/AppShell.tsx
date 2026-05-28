@@ -9,13 +9,21 @@ export function AppShell() {
   const setupComplete = useAppStore((state) => state.setupComplete);
   const saveConfig = useAppStore((state) => state.saveConfig);
 
+  if (!setupComplete) {
+    return (
+      <div className="min-h-screen bg-studio text-studio-foreground">
+        <SetupPanel onSave={saveConfig} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen min-w-[1024px] bg-studio text-studio-foreground">
       <Sidebar />
       <div className="flex min-h-screen min-w-0 flex-col pl-64">
         <EngineHeader />
         <main className="min-w-0 flex-1 overflow-y-auto px-6 py-5">
-          {setupComplete ? <Outlet /> : <SetupPanel onSave={saveConfig} />}
+          <Outlet />
         </main>
         <StatusFooter />
       </div>

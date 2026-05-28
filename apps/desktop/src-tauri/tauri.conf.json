@@ -13,17 +13,23 @@
     "windows": [
       {
         "title": "Voice of Fish",
+        "label": "main",
         "width": 1280,
-        "height": 800
+        "height": 800,
+        "center": true,
+        "minWidth": 1024,
+        "minHeight": 600,
+        "decorations": true,
+        "resizable": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: asset:; font-src 'self' data:; media-src 'self' asset:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self data: asset:; font-src 'self data:; media-src 'self asset:; connect-src 'self ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/icon.ico"]
+    "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"]
   }
 }

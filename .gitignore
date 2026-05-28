@@ -9,3 +9,5 @@ test-results/
 apps/desktop/src-tauri/target/
 *.log
 .vite-inspect/
+.env
+.env.*

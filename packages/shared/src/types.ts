@@ -10,6 +10,7 @@ export type GenerationStatus =
   | "idle"
   | "preparing"
   | "generating"
+  | "cancelled"
   | "completed"
   | "failed";
 
@@ -35,6 +36,7 @@ export interface ModelManifestEntry {
   tokenizerRequired: boolean;
   checksum?: string;
   state: ModelState;
+  downloadUrl?: string;
 }
 
 export interface VoicePreset {

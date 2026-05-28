@@ -1,21 +1,41 @@
 import { expect, test } from "@playwright/test";
 
-test("setup and route navigation stay usable", async ({ page }) => {
+test("onboarding wizard renders engine step", async ({ page }) => {
+  await page.goto("/");
+
+  // Wizard heading is visible, not the main shell
+  await expect(
+    page.getByRole("heading", { name: /connect s2\.cpp/i }),
+  ).toBeVisible();
+
+  // Progress rail shows all 3 steps
+  const steps = page.getByRole("navigation", { name: "Onboarding steps" });
+  await expect(steps.getByText("Engine", { exact: true })).toBeVisible();
+  await expect(steps.getByText("Model file")).toBeVisible();
+  await expect(steps.getByText("Output")).toBeVisible();
+
+  // LOCAL ONLY badge is present
+  await expect(page.getByText("LOCAL ONLY")).toBeVisible();
+
+  // Back button is disabled on first step
+  await expect(page.getByRole("button", { name: /back/i })).toBeDisabled();
+
+  // Sidebar is absent before setup completion
+  await expect(
+    page.getByRole("navigation", { name: /primary/i }),
+  ).not.toBeVisible();
+});
+
+test("external source link is present on engine step", async ({ page }) => {
   await page.goto("/");
 
   await expect(
-    page.getByRole("heading", { name: /voice of fish setup/i }),
+    page.getByRole("button", { name: /view s2\.cpp source/i }),
   ).toBeVisible();
+});
 
-  await page.getByLabel(/s2\.cpp binary/i).fill("C:\\s2\\s2.exe");
-  await page.getByLabel(/models folder/i).fill("C:\\voice-of-fish\\models");
-  await page.getByLabel(/outputs folder/i).fill("C:\\voice-of-fish\\outputs");
-  await page.getByRole("button", { name: /save setup/i }).click();
+test("community badge is visible", async ({ page }) => {
+  await page.goto("/");
 
-  const sidebar = page.getByRole("navigation", { name: /primary/i });
-  await sidebar.getByRole("link", { name: /diagnostics/i }).click();
-
-  await expect(
-    page.getByRole("heading", { name: /diagnostics/i }),
-  ).toBeVisible();
+  await expect(page.getByText("COMMUNITY / EXPERIMENTAL")).toBeVisible();
 });

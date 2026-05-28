@@ -6,15 +6,15 @@ Local voice generation studio desktop app powered by s2.cpp. Compose script text
 
 **Partial-real slice** — Configuration persistence and system diagnostics are now real (Tauri commands with actual sysinfo, path validation, binary detection). Model downloads, generation, and voice cloning remain in mock mode. The UI is wired to swap in real engine commands once s2.cpp flags are validated.
 
-**Windows-first** — the desktop app targets Windows for the initial slice. Linux and macOS binary directories exist with tracked `.gitkeep` files. Tauri config, Rust crates, and build hooks follow cross-platform conventions.
+**Cross-platform desktop target** — the desktop app supports Windows and Linux UX paths. Linux/Hyprland users can select extensionless `s2.cpp` binaries and should read [`docs/hyprland-setup.md`](docs/hyprland-setup.md) for Wayland-specific launch notes.
 
 ## Requirements
 
 - **pnpm** >= 10.x
 - **Node.js** >= 20.x (Vite 8 / Tauri 2 baseline)
-- **Rust** toolchain with Windows Tauri 2 prerequisites:
-  - Microsoft Visual Studio C++ Build Tools
-  - WebView2 runtime (bundled with Windows 11; install manually on Windows 10)
+- **Rust** toolchain with Tauri 2 prerequisites for your OS:
+  - Windows: Microsoft Visual Studio C++ Build Tools and WebView2 runtime.
+  - Linux: WebKitGTK/GTK stack and XDG desktop portal packages required by Tauri/WebKit on your distro.
   - See [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 
 ## Commands

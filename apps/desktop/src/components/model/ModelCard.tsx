@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ModelManifestEntry } from "@voice-of-fish/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 export function ModelCard({
   model,
@@ -9,12 +10,14 @@ export function ModelCard({
   onDownload,
   onDelete,
   onSetActive,
+  progress,
 }: {
   model: ModelManifestEntry;
   isActive: boolean;
   onDownload: () => void;
   onDelete: () => void;
   onSetActive: () => void;
+  progress?: number;
 }) {
   const installed = model.state === "installed";
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -76,7 +79,17 @@ export function ModelCard({
       </div>
       {!installed && (
         <div className="mt-3">
-          <Button onClick={onDownload}>Download {model.quant}</Button>
+          <Button onClick={onDownload} disabled={progress !== undefined}>
+            Download {model.quant}
+          </Button>
+        </div>
+      )}
+      {progress !== undefined && (
+        <div className="mt-3 space-y-1">
+          <Progress value={progress * 100} />
+          <p className="text-xs text-muted">
+            {Math.round(progress * 100)}% downloaded
+          </p>
         </div>
       )}
     </article>

@@ -2,5 +2,7 @@ pub mod commands;
 pub mod config;
 pub mod diagnostics;
 pub mod downloads;
+pub mod history;
 pub mod models;
+pub mod presets;
 pub mod process;

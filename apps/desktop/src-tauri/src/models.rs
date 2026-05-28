@@ -36,6 +36,7 @@ pub enum ModelState {
 pub enum GenerationStatus {
     Idle,
     Preparing,
+    Cancelled,
     Generating,
     Completed,
     Failed,
@@ -95,9 +96,19 @@ pub struct SystemInfo {
 }
 
 impl SystemInfo {
+    /// Returns the OS label for the current platform.
+    fn mock_os_label() -> String {
+        match std::env::consts::OS {
+            "windows" => "Windows".to_string(),
+            "linux" => "Linux".to_string(),
+            "macos" => "macOS".to_string(),
+            other => format!("{} (mock)", other),
+        }
+    }
+
     pub fn mock() -> Self {
         Self {
-            os: "Windows".to_string(),
+            os: Self::mock_os_label(),
             cpu: "Mock local CPU".to_string(),
             ram_label: "16 GB".to_string(),
             gpu: Some("Detect through Tauri later".to_string()),
@@ -107,7 +118,6 @@ impl SystemInfo {
         }
     }
 }
-
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalModel {
@@ -120,6 +130,8 @@ pub struct LocalModel {
     pub tokenizer_required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub checksum: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub download_url: Option<String>,
     pub state: ModelState,
 }
 
@@ -134,7 +146,8 @@ impl LocalModel {
                 approx_bytes: 5_300_000_000,
                 recommendation: "Highest quality, higher VRAM use.".to_string(),
                 tokenizer_required: true,
-                checksum: None,
+                checksum: Some("a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q8_0.gguf")),
                 state: ModelState::NotInstalled,
             },
             Self {
@@ -145,7 +158,8 @@ impl LocalModel {
                 approx_bytes: 4_300_000_000,
                 recommendation: "Recommended balance.".to_string(),
                 tokenizer_required: true,
-                checksum: None,
+                checksum: Some("b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q6_k.gguf")),
                 state: ModelState::Installed,
             },
             Self {
@@ -156,7 +170,8 @@ impl LocalModel {
                 approx_bytes: 3_800_000_000,
                 recommendation: "Stable choice for limited GPUs.".to_string(),
                 tokenizer_required: true,
-                checksum: None,
+                checksum: Some("c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q5_k_m.gguf")),
                 state: ModelState::NotInstalled,
             },
             Self {
@@ -167,7 +182,8 @@ impl LocalModel {
                 approx_bytes: 3_400_000_000,
                 recommendation: "Lower consumption, lower quality.".to_string(),
                 tokenizer_required: true,
-                checksum: None,
+                checksum: Some("d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q4_k_m.gguf")),
                 state: ModelState::NotInstalled,
             },
         ]
@@ -269,6 +285,39 @@ impl GenerationLogLine {
     }
 }
 
+/// A record of a completed or cancelled generation.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryRecord {
+    pub id: String,
+    pub text: String,
+    pub model_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice_name: Option<String>,
+    pub output_path: String,
+    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_seconds: Option<f64>,
+    pub status: GenerationStatus,
+}
+
+/// A user-created voice cloning preset.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct VoicePreset {
+    pub id: String,
+    pub name: String,
+    pub language: String,
+    pub reference_text: String,
+    pub reference_file_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reference_audio_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub duration_seconds: Option<f64>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -279,7 +328,7 @@ mod tests {
     #[test]
     fn system_info_omits_absent_optional_fields() {
         let info = SystemInfo {
-            os: "Windows".to_string(),
+            os: "Test OS".to_string(),
             cpu: "Mock local CPU".to_string(),
             ram_label: "16 GB".to_string(),
             gpu: None,
@@ -287,7 +336,6 @@ mod tests {
             engine_version: None,
             binary_found: None,
         };
-
         let value = serde_json::to_value(info).expect("system info serializes");
 
         assert!(value.get("gpu").is_none());
@@ -307,11 +355,14 @@ mod tests {
             tokenizer_required: true,
             checksum: None,
             state: ModelState::Installed,
+            download_url: None,
         };
 
         let value = serde_json::to_value(model).expect("model serializes");
 
         assert!(value.get("checksum").is_none());
+        assert!(value.get("checksum").is_none());
+        assert!(value.get("downloadUrl").is_none());
     }
 
     #[test]

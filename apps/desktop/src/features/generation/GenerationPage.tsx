@@ -1,14 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  LANGUAGE_OPTIONS,
-  MOCK_HISTORY,
-  S2_MODEL_MANIFEST,
-} from "@voice-of-fish/shared/constants";
+import { LANGUAGE_OPTIONS } from "@voice-of-fish/shared/constants";
 import { generationRequestSchema } from "@voice-of-fish/shared/schemas";
 import type { GenerationJob, GenerationRequest } from "@voice-of-fish/shared";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { GenerationResult } from "@/components/generation/GenerationResult";
 import { RecentGenerations } from "@/components/generation/RecentGenerations";
@@ -43,6 +39,16 @@ const STATUS_PROGRESS: Record<string, number> = {
 export function GenerationPage() {
   const [completedJob, setCompletedJob] = useState<GenerationJob | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const models = useQuery({
+    queryKey: ["models"],
+    queryFn: studioClient.listLocalModels,
+  });
+
+  const history = useQuery({
+    queryKey: ["history"],
+    queryFn: () => studioClient.listGenerationHistory(),
+  });
 
   const {
     register,
@@ -146,7 +152,7 @@ export function GenerationPage() {
                   {...register("modelId")}
                   className="flex h-9 w-full rounded-md border border-line bg-studio px-3 py-1 text-sm text-studio-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
                 >
-                  {S2_MODEL_MANIFEST.map((model) => (
+                  {models.data?.map((model) => (
                     <option key={model.id} value={model.id}>
                       {model.quant} / {model.filename}
                     </option>
@@ -244,7 +250,7 @@ export function GenerationPage() {
         </CardHeader>
         <CardContent>
           <RecentGenerations
-            history={MOCK_HISTORY}
+            history={history.data ?? []}
             completedJob={completedJob}
           />
         </CardContent>

@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { MOCK_HISTORY } from "@voice-of-fish/shared/constants";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { studioClient } from "@/lib/tauri";
 
 export function DashboardPage() {
@@ -15,29 +15,42 @@ export function DashboardPage() {
     queryKey: ["models"],
     queryFn: studioClient.listLocalModels,
   });
+  const history = useQuery({
+    queryKey: ["history", 1],
+    queryFn: () => studioClient.listGenerationHistory(1),
+  });
+
   const installed =
     models.data?.filter((model) => model.state === "installed").length ?? 0;
+
+  const lastRecord = history.data?.[0];
 
   return (
     <section className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-normal">Dashboard</h1>
         <p className="mt-1 text-sm text-muted">
-          Mock studio overview for local voice generation.
+          Studio overview for local voice generation.
         </p>
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Engine readiness</CardTitle>
-          <Badge>Mock engine idle</Badge>
+          <Badge>{installed > 0 ? "Ready" : "No models installed"}</Badge>
         </CardHeader>
         <CardContent className="space-y-3">
           {diagnostics.isLoading || models.isLoading ? (
-            <p className="text-sm text-muted">Loading system status…</p>
+            <>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-2 w-full" />
+              </div>
+            </>
           ) : diagnostics.isError || models.isError ? (
             <p className="text-sm text-danger">Failed to load engine data.</p>
-          ) : (
+          ) : diagnostics.data && models.data ? (
             <>
               <p className="text-sm text-muted">
                 {diagnostics.data?.os ?? "?"} /{" "}
@@ -48,6 +61,8 @@ export function DashboardPage() {
               </p>
               <Progress value={installed * 25} aria-label="Engine readiness" />
             </>
+          ) : (
+            <p className="text-sm text-muted">Loading system status…</p>
           )}
         </CardContent>
       </Card>
@@ -57,11 +72,20 @@ export function DashboardPage() {
           <CardTitle>Last generation</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="text-sm text-muted">{MOCK_HISTORY[0].outputPath}</p>
-          <p className="text-xs text-muted">
-            Model: {MOCK_HISTORY[0].modelId} &middot; Duration:{" "}
-            {MOCK_HISTORY[0].durationSeconds}s
-          </p>
+          {lastRecord ? (
+            <>
+              <p className="text-sm text-muted">{lastRecord.outputPath}</p>
+              <p className="text-xs text-muted">
+                Model: {lastRecord.modelId}
+                {lastRecord.durationSeconds != null &&
+                  ` · ${lastRecord.durationSeconds}s`}
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted">
+              No generations recorded yet.
+            </p>
+          )}
         </CardContent>
       </Card>
 

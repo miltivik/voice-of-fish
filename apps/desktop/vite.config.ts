@@ -7,7 +7,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   clearScreen: false,
-  server: { port: 1420, strictPort: true },
+  server: { port: 1420, strictPort: true, headers: { "X-Content-Type-Options": "nosniff" } },
   build: {
     chunkSizeWarningLimit: 550,
   },

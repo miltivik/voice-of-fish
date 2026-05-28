@@ -11,6 +11,11 @@ import type {
   SystemInfo,
 } from "@voice-of-fish/shared";
 import type { StudioClient } from "./tauri";
+import {
+  getPlatformDefaultPaths,
+  getRuntimePlatformLabel,
+  joinDisplayPath,
+} from "./platform";
 
 let models = structuredClone(S2_MODEL_MANIFEST);
 
@@ -27,7 +32,7 @@ export const defaultConfig: AppConfig = {
 };
 
 const systemInfo: SystemInfo = {
-  os: "Windows",
+  os: getRuntimePlatformLabel(),
   cpu: "Mock local CPU",
   ramLabel: "16 GB",
   gpu: "Detect through Tauri later",
@@ -47,13 +52,14 @@ const logs: ProcessLogLine[] = [
 const cloneModels = (): ModelManifestEntry[] => structuredClone(models);
 
 function completedJob(request: GenerationRequest): GenerationJob {
+  const defaultPaths = getPlatformDefaultPaths();
   return {
     ...request,
     id: "mock-job-1",
     status: "completed",
     createdAt: "2026-05-22T12:00:00.000Z",
     completedAt: "2026-05-22T12:00:01.000Z",
-    outputPath: "C:\\voice-of-fish\\outputs\\mock-generation.wav",
+    outputPath: joinDisplayPath(defaultPaths.outputsPath, "mock-generation.wav"),
     durationSeconds: MOCK_HISTORY[0].durationSeconds,
   };
 }
@@ -79,4 +85,8 @@ export const mockClient: StudioClient = {
   cancelGeneration: async () => true,
   readGenerationLogs: async () => logs,
   openOutputFolder: async () => true,
+listGenerationHistory: async () => [],
+  listVoicePresets: async () => [],
+  saveVoicePreset: async (preset) => preset,
+  deleteVoicePreset: async () => true,
 };

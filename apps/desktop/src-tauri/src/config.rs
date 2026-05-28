@@ -1,58 +1,71 @@
 use crate::models::AppConfig;
-use std::sync::Mutex;
+use std::path::PathBuf;
+use tauri::AppHandle;
+use tauri_plugin_store::StoreExt;
 
-pub fn get_mock_config() -> AppConfig {
-    AppConfig::mock()
-}
+const CONFIG_KEY: &str = "app_config";
+const STORE_FILENAME: &str = "settings.json";
 
-pub fn save_mock_config(config: AppConfig) -> AppConfig {
-    config
-}
-
-pub struct ConfigStore {
-    inner: Mutex<Option<AppConfig>>,
-}
-
-impl ConfigStore {
-    pub fn new() -> Self {
-        Self {
-            inner: Mutex::new(None),
-        }
+/// Initializes the config store on first setup. If no config exists, writes
+/// the defaults and saves them immediately so subsequent loads see them.
+pub fn init_config(app: &AppHandle) -> Result<(), String> {
+    let store = app
+        .store(STORE_FILENAME)
+        .map_err(|e| format!("failed to open config store: {e}"))?;
+    if store.get(CONFIG_KEY).is_none() {
+        let default_config = get_default_config();
+        let value = serde_json::to_value(&default_config)
+            .map_err(|e| format!("failed to serialize default config: {e}"))?;
+        store.set(CONFIG_KEY.to_string(), value);
+        store
+            .save()
+            .map_err(|e| format!("failed to persist default config: {e}"))?;
     }
+    Ok(())
+}
 
-    pub fn get_config(&self) -> Option<AppConfig> {
-        self.inner.lock().ok().and_then(|guard| guard.clone())
-    }
+/// Loads the persisted app config. Falls back to defaults if the store is
+/// missing, empty, or contains corrupt data.
+pub fn load_app_config(app: &AppHandle) -> AppConfig {
+    let store = match app.store(STORE_FILENAME) {
+        Ok(s) => s,
+        Err(_) => return get_default_config(),
+    };
 
-    pub fn set_config(&self, config: AppConfig) {
-        if let Ok(mut guard) = self.inner.lock() {
-            *guard = Some(config);
-        }
+    match store.get(CONFIG_KEY) {
+        Some(raw) => serde_json::from_value(raw.clone()).unwrap_or_else(|_| get_default_config()),
+        None => get_default_config(),
     }
 }
 
-impl Default for ConfigStore {
-    fn default() -> Self {
-        Self::new()
-    }
+/// Persists the app config to disk.
+pub fn save_app_config(app: &AppHandle, config: &AppConfig) -> Result<AppConfig, String> {
+    let store = app
+        .store(STORE_FILENAME)
+        .map_err(|e| format!("failed to open config store for save: {e}"))?;
+
+    let value =
+        serde_json::to_value(config).map_err(|e| format!("failed to serialize config: {e}"))?;
+
+    store.set(CONFIG_KEY.to_string(), value);
+    store
+        .save()
+        .map_err(|e| format!("failed to save config: {e}"))?;
+
+    Ok(config.clone())
 }
 
+/// Returns reasonable default paths using the user's home directory.
 pub fn get_default_config() -> AppConfig {
-    let home = dirs::home_dir().map(|p| p.to_string_lossy().to_string());
-    let default_models = home
-        .as_ref()
-        .map(|h| format!("{}\\voice-of-fish\\models", h))
-        .unwrap_or_else(|| "C:\\voice-of-fish\\models".to_string());
-    let default_outputs = home
-        .as_ref()
-        .map(|h| format!("{}\\voice-of-fish\\outputs", h))
-        .unwrap_or_else(|| "C:\\voice-of-fish\\outputs".to_string());
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    let models_path = home.join("voice-of-fish").join("models");
+    let outputs_path = home.join("voice-of-fish").join("outputs");
 
     AppConfig {
         mode: crate::models::AppMode::Simple,
         binary_path: String::new(),
-        models_path: default_models,
-        outputs_path: default_outputs,
+        models_path: models_path.to_string_lossy().to_string(),
+        outputs_path: outputs_path.to_string_lossy().to_string(),
         default_model_id: "s2-q6".to_string(),
         default_audio_format: crate::models::AudioFormat::Wav,
         cpu_threads: 8,
@@ -66,19 +79,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn config_store_basic_operations() {
-        let store = ConfigStore::new();
-        assert!(store.get_config().is_none());
-
-        let config = get_default_config();
-        store.set_config(config.clone());
-        assert_eq!(store.get_config(), Some(config));
-    }
-
-    #[test]
     fn default_config_has_reasonable_paths() {
         let config = get_default_config();
         assert!(config.models_path.contains("voice-of-fish"));
         assert!(config.outputs_path.contains("voice-of-fish"));
+        assert!(config.models_path.contains(std::path::MAIN_SEPARATOR));
+    }
+
+    #[test]
+    fn default_config_has_expected_defaults() {
+        let config = get_default_config();
+        assert_eq!(config.mode, crate::models::AppMode::Simple);
+        assert!(config.binary_path.is_empty());
+        assert_eq!(config.default_model_id, "s2-q6");
+        assert_eq!(config.default_audio_format, crate::models::AudioFormat::Wav);
+        assert_eq!(config.cpu_threads, 8);
+        assert!(config.gpu_enabled);
+        assert!(config.advanced_args.is_empty());
+    }
+
+    #[test]
+    fn default_config_serializes_and_deserializes() {
+        let config = get_default_config();
+        let json = serde_json::to_value(&config).expect("serialize");
+        let restored: AppConfig = serde_json::from_value(json).expect("deserialize");
+        assert_eq!(config, restored);
     }
 }
