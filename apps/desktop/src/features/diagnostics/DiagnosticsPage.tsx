@@ -68,27 +68,6 @@ export function DiagnosticsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Last command</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="font-mono text-sm text-muted">
-            &lt;binary&gt; -o &lt;path&gt;
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-studio-foreground">
-            No generation error recorded.
-          </p>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

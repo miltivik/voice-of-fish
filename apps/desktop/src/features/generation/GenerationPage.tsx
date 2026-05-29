@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { LANGUAGE_OPTIONS } from "@voice-of-fish/shared/constants";
 import { generationRequestSchema } from "@voice-of-fish/shared/schemas";
 import type { GenerationJob, GenerationRequest } from "@voice-of-fish/shared";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -38,6 +38,7 @@ export function GenerationPage() {
     queryKey: ["models"],
     queryFn: studioClient.listLocalModels,
   });
+  const installedModels = (models.data ?? []).filter(m => m.state === 'installed');
 
   const history = useQuery({
     queryKey: ["history"],
@@ -76,8 +77,17 @@ export function GenerationPage() {
     onError: () => {
       useAppStore.getState().setFooterStatus("error");
       toast.error("Generation failed");
+      setTimeout(() => {
+        useAppStore.getState().setFooterStatus("ready");
+      }, 3000);
     },
   });
+  // Reset footerStatus on unmount to clear 'error' state
+  useEffect(() => {
+    return () => {
+      useAppStore.getState().setFooterStatus("ready");
+    };
+ }, []);
 
   const onSubmit = (values: FormValues) => {
     generation.mutate(values as GenerationRequest);
@@ -145,7 +155,7 @@ export function GenerationPage() {
                   {...register("modelId")}
                   className="flex h-9 w-full rounded-md border border-line bg-studio px-3 py-1 text-sm text-studio-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
                 >
-                  {models.data?.map((model) => (
+                  {installedModels.map((model) => (
                     <option key={model.id} value={model.id}>
                       {model.quant} / {model.filename}
                     </option>

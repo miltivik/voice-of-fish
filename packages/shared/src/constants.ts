@@ -25,7 +25,21 @@ export const STYLE_TAGS = [
 export const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
   { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
+  { value: "de", label: "German" },
+  { value: "it", label: "Italian" },
+  { value: "pt", label: "Portuguese" },
+  { value: "pl", label: "Polish" },
+  { value: "tr", label: "Turkish" },
+  { value: "ru", label: "Russian" },
+  { value: "nl", label: "Dutch" },
+  { value: "cs", label: "Czech" },
+  { value: "ar", label: "Arabic" },
+  { value: "zh-cn", label: "Chinese (Simplified)" },
   { value: "ja", label: "Japanese" },
+  { value: "hu", label: "Hungarian" },
+  { value: "ko", label: "Korean" },
+  { value: "hi", label: "Hindi" },
 ] as const;
 // Supported languages from Rust backend (s2.cpp)
 export const SUPPORTED_LANGUAGES = [
