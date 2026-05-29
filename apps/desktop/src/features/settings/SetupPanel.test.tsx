@@ -68,11 +68,12 @@ describe("SetupPanel", () => {
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        mode: "simple",
         binaryPath: "/home/test/voice-of-fish/s2.cpp/s2",
         outputsPath: "/home/test/voice-of-fish/outputs",
         defaultModelId: "s2-q6",
-        defaultAudioFormat: "wav",
+        cpuThreads: 8,
+        gpuEnabled: true,
+        modelsPath: "",
       }),
     );
   });

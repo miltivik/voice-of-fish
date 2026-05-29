@@ -1,3 +1,5 @@
+import { z } from "zod";
+import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LANGUAGE_OPTIONS } from "@voice-of-fish/shared/constants";
 import { generationRequestSchema } from "@voice-of-fish/shared/schemas";
@@ -18,15 +20,7 @@ import { studioClient } from "@/lib/tauri";
 import { useAppStore } from "@/stores/useAppStore";
 import { useGenerationStore } from "@/stores/useGenerationStore";
 
-interface FormValues {
-  text: string;
-  language: string;
-  modelId: string;
-  seed?: number;
-  voicePresetId?: string;
-  referenceAudioPath?: string;
-  referenceText?: string;
-}
+type FormValues = z.infer<typeof generationRequestSchema>;
 
 const STATUS_PROGRESS: Record<string, number> = {
   idle: 0,
@@ -57,8 +51,7 @@ export function GenerationPage() {
     setValue,
     formState: { errors },
   } = useForm<FormValues>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(generationRequestSchema) as any,
+    resolver: zodResolver(generationRequestSchema) as Resolver<FormValues>,
     defaultValues: {
       text: "",
       language: "en",

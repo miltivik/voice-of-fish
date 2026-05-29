@@ -206,7 +206,5 @@ export const tauriClient: StudioClient = {
     invoke<boolean>("delete_voice_preset", { id }),
 };
 
-
-export { mockClient } from "./mock-data";
 // Production client — all methods route to real Tauri IPC.
 export const studioClient: StudioClient = tauriClient;

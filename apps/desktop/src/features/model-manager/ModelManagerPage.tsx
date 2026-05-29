@@ -15,21 +15,34 @@ export function ModelManagerPage() {
   const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    let cancelled = false;
     let unlistenFn: (() => void) | undefined;
+
     listen<{ modelId: string; downloaded: number; total: number }>(
       "download-progress",
       (event) => {
+        if (cancelled) return;
         setDownloadProgress((prev) => ({
           ...prev,
           [event.payload.modelId]: event.payload.downloaded / event.payload.total,
         }));
       },
     )
-      .then((fn) => { unlistenFn = fn; })
+      .then((fn) => {
+        if (cancelled) {
+          fn();
+        } else {
+          unlistenFn = fn;
+        }
+      })
       .catch(() => {
         // Tauri runtime not available (e.g., in tests without Tauri mock)
       });
-    return () => { unlistenFn?.(); };
+
+    return () => {
+      cancelled = true;
+      unlistenFn?.();
+    };
   }, []);
 
   const clearProgress = (modelId: string) => {

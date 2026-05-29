@@ -1,13 +1,11 @@
 import { useState, useCallback } from "react";
-import type { AppMode, ModelQuant } from "@voice-of-fish/shared";
+import type { ModelQuant } from "@voice-of-fish/shared";
 import { t } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
 import { validateOutputPath } from "./onboarding-validation";
 import { getPlatformDefaultPaths } from "@/lib/platform";
 import { pickFolderPath } from "@/lib/tauri";
+
 interface OnboardingOutputStepProps {
-  mode: AppMode;
-  onModeChange: (mode: AppMode) => void;
   outputsPath: string;
   onOutputsPathChange: (path: string) => void;
   binaryPath: string;
@@ -17,8 +15,6 @@ interface OnboardingOutputStepProps {
 }
 
 export function OnboardingOutputStep({
-  mode,
-  onModeChange,
   outputsPath,
   onOutputsPathChange,
   binaryPath,
@@ -66,35 +62,6 @@ export function OnboardingOutputStep({
           {t("outputBody")}
         </p>
       </div>
-
-      {/* Mode selector */}
-      <fieldset>
-        <legend className="sr-only">Generation mode</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {(["simple", "advanced"] as AppMode[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onModeChange(m)}
-              className={cn(
-                "rounded-lg border px-4 py-3 text-left transition-colors",
-                mode === m
-                  ? "border-accent bg-accent/10"
-                  : "border-line bg-studio hover:border-line/80",
-              )}
-            >
-              <span className="text-sm font-semibold">
-                {m === "simple" ? t("outputModeSimple") : t("outputModeAdvanced")}
-              </span>
-              <p className="mt-1 text-xs text-muted">
-                {m === "simple"
-                  ? t("outputModeSimpleDesc")
-                  : t("outputModeAdvancedDesc")}
-              </p>
-            </button>
-          ))}
-        </div>
-      </fieldset>
 
       {/* Output folder */}
       <div className="space-y-2">

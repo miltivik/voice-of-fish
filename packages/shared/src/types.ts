@@ -1,4 +1,3 @@
-export type AppMode = "simple" | "advanced";
 export type AudioFormat = "wav";
 export type ModelQuant = "Q8" | "Q6" | "Q5" | "Q4";
 export type ModelState =
@@ -15,15 +14,12 @@ export type GenerationStatus =
   | "failed";
 
 export interface AppConfig {
-  mode: AppMode;
   binaryPath: string;
   modelsPath: string;
   outputsPath: string;
   defaultModelId: string;
-  defaultAudioFormat: AudioFormat;
   cpuThreads: number;
   gpuEnabled: boolean;
-  advancedArgs: Record<string, string | number | boolean>;
 }
 
 export interface ModelManifestEntry {

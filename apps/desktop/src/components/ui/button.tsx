@@ -26,7 +26,7 @@ const buttonVariants = cva(
   },
 );
 
-export interface ButtonProps
+interface ButtonProps
   extends
     ComponentPropsWithoutRef<"button">,
     VariantProps<typeof buttonVariants> {}

@@ -62,7 +62,7 @@ pub fn download_model_file(models_path: &Path, model_id: &str, app: Option<&taur
     let checksum = entry.checksum.as_deref().filter(|c| !c.is_empty())
         .ok_or_else(|| format!("download not available for {model_id}: no checksum"))?;
 
-    let _max_bytes = ((entry.approx_bytes as f64) * DOWNLOAD_SIZE_MARGIN) as u64;
+    let max_bytes = ((entry.approx_bytes as f64) * DOWNLOAD_SIZE_MARGIN) as u64;
 
     std::fs::create_dir_all(models_path)
         .map_err(|e| format!("failed to create models directory: {e}"))?;
@@ -93,6 +93,21 @@ pub fn download_model_file(models_path: &Path, model_id: &str, app: Option<&taur
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(entry.approx_bytes);
     {
+        // Validate Content-Length against max_bytes before streaming.
+        if let Some(cl) = response
+            .headers()
+            .get("Content-Length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<u64>().ok())
+        {
+            if cl > max_bytes {
+                let _ = std::fs::remove_file(&temp_path);
+                return Err(format!(
+                    "download size {cl} bytes exceeds safety limit of {max_bytes} bytes"
+                ));
+            }
+        }
+
         let mut dest = File::create_new(&temp_path).map_err(|e| {
             let _ = std::fs::remove_file(&temp_path);
             format!("failed to create temp file: {e}")
@@ -106,11 +121,18 @@ pub fn download_model_file(models_path: &Path, model_id: &str, app: Option<&taur
                 format!("download streaming failed: {e}")
             })?;
             if n == 0 { break; }
+            downloaded += n as u64;
+            // Enforce size cap inside the streaming loop.
+            if downloaded > max_bytes {
+                let _ = std::fs::remove_file(&temp_path);
+                return Err(format!(
+                    "download exceeded safety limit of {max_bytes} bytes"
+                ));
+            }
             dest.write_all(&buf[..n]).map_err(|e| {
                 let _ = std::fs::remove_file(&temp_path);
                 format!("download streaming failed: {e}")
             })?;
-            downloaded += n as u64;
             if let Some(app) = &app {
                 let _ = app.emit("download-progress", serde_json::json!({
                     "modelId": model_id,

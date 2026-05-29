@@ -1,4 +1,13 @@
-import type { HistoryRecord, ModelManifestEntry, VoicePreset } from "./types";
+export const DEFAULT_APP_CONFIG = {
+  binaryPath: "",
+  modelsPath: "",
+  outputsPath: "",
+  defaultModelId: "s2-q6",
+  cpuThreads: 8,
+  gpuEnabled: true,
+} as const;
+
+import type { HistoryRecord, ModelManifestEntry } from "./types";
 
 export const STYLE_TAGS = [
   "[laughing]",
@@ -18,6 +27,10 @@ export const LANGUAGE_OPTIONS = [
   { value: "es", label: "Spanish" },
   { value: "ja", label: "Japanese" },
 ] as const;
+// Supported languages from Rust backend (s2.cpp)
+export const SUPPORTED_LANGUAGES = [
+  "en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru", "nl", "cs", "ar", "zh-cn", "ja", "hu", "ko", "hi",
+] as const;
 
 export const S2_MODEL_MANIFEST: ModelManifestEntry[] = [
   {
@@ -28,7 +41,7 @@ export const S2_MODEL_MANIFEST: ModelManifestEntry[] = [
     approxBytes: 5_300_000_000,
     recommendation: "Highest quality, higher VRAM use.",
     tokenizerRequired: true,
-    checksum: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    checksum: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
     state: "not-installed",
     downloadUrl: "https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/s2-pro-q8_0.gguf",
   },
@@ -40,7 +53,7 @@ export const S2_MODEL_MANIFEST: ModelManifestEntry[] = [
     approxBytes: 4_300_000_000,
     recommendation: "Recommended balance.",
     tokenizerRequired: true,
-    checksum: "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    checksum: "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
     state: "installed",
     downloadUrl: "https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/s2-pro-q6_k.gguf",
   },
@@ -52,7 +65,7 @@ export const S2_MODEL_MANIFEST: ModelManifestEntry[] = [
     approxBytes: 3_800_000_000,
     recommendation: "Stable choice for limited GPUs.",
     tokenizerRequired: true,
-    checksum: "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    checksum: "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
     state: "not-installed",
     downloadUrl: "https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/s2-pro-q5_k_m.gguf",
   },
@@ -64,20 +77,9 @@ export const S2_MODEL_MANIFEST: ModelManifestEntry[] = [
     approxBytes: 3_400_000_000,
     recommendation: "Lower consumption, lower quality.",
     tokenizerRequired: true,
-    checksum: "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    checksum: "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
     state: "not-installed",
     downloadUrl: "https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/s2-pro-q4_k_m.gguf",
-  },
-];
-
-export const MOCK_VOICES: VoicePreset[] = [
-  {
-    id: "voice-nora",
-    name: "Nora reference",
-    language: "en",
-    referenceText: "Local voices keep their reference transcript.",
-    referenceFileName: "nora-reference.wav",
-    durationSeconds: 14,
   },
 ];
 

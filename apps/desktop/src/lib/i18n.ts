@@ -103,7 +103,3 @@ export function t(
 
   return message;
 }
-
-export function tKeys() {
-  return Object.keys(messages.en) as MessageKey[];
-}

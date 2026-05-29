@@ -10,6 +10,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{mpsc, LazyLock};
 
 const MAX_LOG_LINES: usize = 5000;
+/// Capacity of the bounded log channel. Backpressure from this limit prevents
+/// unbounded memory growth when the UI polls logs slowly.
+const LOG_CHANNEL_CAP: usize = 4096;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -128,15 +131,18 @@ impl Drop for ProcessManager {
 
 impl Default for ProcessManager {
     fn default() -> Self {
-        Self { child: None, active_job: None, started_at: None, log_lines: VecDeque::new(), log_rx: None, handles: Vec::new() }
+        Self {
+            child: None,
+            active_job: None,
+            started_at: None,
+            log_lines: VecDeque::new(),
+            log_rx: None,
+            handles: Vec::new(),
+        }
     }
 }
 
 impl ProcessManager {
-    pub fn mock_with_logs() -> Self {
-        Self { child: None, active_job: None, started_at: None, log_lines: GenerationLogLine::mock_lines().into(), log_rx: None, handles: Vec::new() }
-    }
-
     pub fn spawn_generation(
         &mut self, spec: &GenerationCommandSpec, request: &GenerationRequest, job_id: &str,
     ) -> Result<GenerationJob, String> {
@@ -148,7 +154,8 @@ impl ProcessManager {
 
         let mut child = cmd.spawn().map_err(|e| format!("failed to spawn engine: {e}"))?;
 
-        let (tx, rx) = mpsc::channel::<GenerationLogLine>();
+        // Bounded channel — backpressure if the UI stops polling logs.
+        let (tx, rx) = mpsc::sync_channel::<GenerationLogLine>(LOG_CHANNEL_CAP);
         let tx_out = tx.clone();
         let tx_err = tx;
         let jid_out = job_id.to_string();
@@ -160,7 +167,8 @@ impl ProcessManager {
                 for line in BufReader::new(stdout).lines().flatten() {
                     let _ = tx_out.send(GenerationLogLine {
                         id: format!("{}-stdout-{}", jid_out, seq),
-                        stream: LogStream::Stdout, message: sanitize_log_message(&line),
+                        stream: LogStream::Stdout,
+                        message: sanitize_log_message(&line),
                         created_at: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
                     });
                     seq += 1;
@@ -174,7 +182,8 @@ impl ProcessManager {
                 for line in BufReader::new(stderr).lines().flatten() {
                     let _ = tx_err.send(GenerationLogLine {
                         id: format!("{}-stderr-{}", jid_err, seq),
-                        stream: LogStream::Stderr, message: sanitize_log_message(&line),
+                        stream: LogStream::Stderr,
+                        message: sanitize_log_message(&line),
                         created_at: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
                     });
                     seq += 1;
@@ -186,15 +195,21 @@ impl ProcessManager {
         let now_str = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
 
         let job = GenerationJob {
-            text: request.text.clone(), language: request.language.clone(),
-            model_id: request.model_id.clone(), seed: request.seed,
+            text: request.text.clone(),
+            language: request.language.clone(),
+            model_id: request.model_id.clone(),
+            seed: request.seed,
             voice_preset_id: request.voice_preset_id.clone(),
             reference_audio_path: request.reference_audio_path.clone(),
             reference_text: request.reference_text.clone(),
-            id: job_id.to_string(), status: GenerationStatus::Generating,
+            id: job_id.to_string(),
+            status: GenerationStatus::Generating,
             output_path: Some(spec.output_path.to_string_lossy().to_string()),
-            audio_url: None, created_at: now_str.clone(),
-            completed_at: None, duration_seconds: None, error: None,
+            audio_url: None,
+            created_at: now_str.clone(),
+            completed_at: None,
+            duration_seconds: None,
+            error: None,
         };
 
         self.child = Some(child);
@@ -202,38 +217,75 @@ impl ProcessManager {
         self.started_at = Some(now);
         self.log_lines = VecDeque::new();
         self.log_lines.push_back(GenerationLogLine {
-            id: format!("{job_id}-system-0"), stream: LogStream::System,
-            message: spec.redacted_display(), created_at: now_str,
+            id: format!("{job_id}-system-0"),
+            stream: LogStream::System,
+            message: spec.redacted_display(),
+            created_at: now_str,
         });
         self.log_rx = Some(rx);
 
         Ok(job)
     }
 
-    fn drain(&mut self) {
+    /// Drops the log channel receiver, stopping sender backpressure.
+    /// Use when finalizing or cancelling a job.
+    pub fn clear_log_channel(&mut self) {
+        self.log_rx = None;
+    }
+
+    /// Drains the log channel into `log_lines`, trimming to MAX_LOG_LINES.
+    pub fn drain(&mut self) {
         if let Some(ref rx) = self.log_rx {
             while let Ok(line) = rx.try_recv() {
-                while self.log_lines.len() >= MAX_LOG_LINES { self.log_lines.pop_front(); }
+                while self.log_lines.len() >= MAX_LOG_LINES {
+                    self.log_lines.pop_front();
+                }
                 self.log_lines.push_back(line);
             }
         }
     }
 
-    fn finish(&mut self, status: Option<std::process::ExitStatus>) {
-        let ts = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-        if let Some(ref mut job) = self.active_job {
-            job.completed_at = Some(ts);
-            if let Some(ref st) = self.started_at {
-                job.duration_seconds = Some((Utc::now() - *st).num_milliseconds() as f64 / 1000.0);
-            }
-            match status {
-                Some(s) if s.success() => job.status = GenerationStatus::Completed,
-                Some(s) => { job.status = GenerationStatus::Failed; job.error = Some(format!("exit code {}", s.code().unwrap_or(-1))); }
-                None => { job.status = GenerationStatus::Failed; job.error = Some("terminated".into()); }
+    /// Joins finished reader threads, freeing their resources.
+    /// Threads that are still running are left in `handles`.
+    pub fn join_finished_handles(&mut self) {
+        let mut i = 0;
+        while i < self.handles.len() {
+            if self.handles[i].is_finished() {
+                let h = self.handles.swap_remove(i);
+                let _ = h.join();
+            } else {
+                i += 1;
             }
         }
     }
 
+    fn finish(&mut self, status: Option<std::process::ExitStatus>) {
+        self.drain();
+        self.join_finished_handles();
+        let ts = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        if let Some(ref mut job) = self.active_job {
+            job.completed_at = Some(ts);
+            if let Some(ref st) = self.started_at {
+                job.duration_seconds =
+                    Some((Utc::now() - *st).num_milliseconds() as f64 / 1000.0);
+            }
+            match status {
+                Some(s) if s.success() => job.status = GenerationStatus::Completed,
+                Some(s) => {
+                    job.status = GenerationStatus::Failed;
+                    job.error = Some(format!("exit code {}", s.code().unwrap_or(-1)));
+                }
+                None => {
+                    job.status = GenerationStatus::Failed;
+                    job.error = Some("terminated".into());
+                }
+            }
+        }
+    }
+
+    /// Cancels the active job. Kills the child, drains final logs, joins handles.
+    /// The caller SHOULD extract the child, kill/wait outside the mutex, then
+    /// re-acquire the lock and call this to finalize state.
     pub fn cancel_active(&mut self) -> bool {
         self.drain();
         if let Some(ref mut child) = self.child {
@@ -241,11 +293,13 @@ impl ProcessManager {
             let _ = child.wait();
             self.child = None;
             self.drain();
+            self.join_finished_handles();
             self.log_rx = None;
             if let Some(ref mut job) = self.active_job {
                 if !matches!(job.status, GenerationStatus::Completed | GenerationStatus::Failed) {
                     job.status = GenerationStatus::Cancelled;
-                    job.completed_at = Some(Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
+                    job.completed_at =
+                        Some(Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
                 }
             }
             true
@@ -258,7 +312,11 @@ impl ProcessManager {
         self.drain();
         if let Some(ref mut child) = self.child {
             match child.try_wait() {
-                Ok(Some(status)) => { self.child = None; self.drain(); self.log_rx = None; self.finish(Some(status)); true }
+                Ok(Some(status)) => {
+                    self.child = None;
+                    self.finish(Some(status));
+                    true
+                }
                 Ok(None) => false,
                 Err(_) => false,
             }
@@ -271,38 +329,80 @@ impl ProcessManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{AppConfig, AudioFormat, LocalModel, ModelQuant, ModelState};
+    use crate::models::{AppConfig, LocalModel, ModelQuant, ModelState};
 
     #[test]
     fn sanitize_removes_ansi() {
         assert_eq!(sanitize_log_message("\x1b[31mErr\x1b[0m"), "Err");
     }
+
     #[test]
     fn sanitize_truncates() {
         let o = sanitize_log_message(&"x".repeat(5000));
         assert!(o.len() <= 4093 && o.ends_with("..."));
     }
+
     #[test]
     fn sanitize_multibyte_safe() {
         let o = sanitize_log_message(&format!("{}魚x", "a".repeat(4200)));
         assert!(o.ends_with("..."));
     }
+
     #[test]
     fn redacted_no_leak() {
-        let s = GenerationCommandSpec { binary_path: "/b".into(), args: vec!["--text".into(), "sec".into()], cwd: None, output_path: "/o".into() };
+        let s = GenerationCommandSpec {
+            binary_path: "/b".into(),
+            args: vec!["--text".into(), "sec".into()],
+            cwd: None,
+            output_path: "/o".into(),
+        };
         assert!(!s.redacted_display().contains("sec"));
     }
+
     #[test]
     fn spec_maps_args() {
-        let r = GenerationRequest { text: "hi".into(), language: "en".into(), model_id: "s2".into(), seed: None, voice_preset_id: None, reference_audio_path: None, reference_text: None };
-        let c = AppConfig { mode: crate::models::AppMode::Simple, binary_path: "/b".into(), models_path: "/m".into(), outputs_path: "/o".into(), default_model_id: "s2".into(), default_audio_format: AudioFormat::Wav, cpu_threads: 1, gpu_enabled: true, advanced_args: std::collections::BTreeMap::new() };
-        let m = LocalModel { id: "s2".into(), quant: ModelQuant::Q6, filename: "f".into(), display_size: "1".into(), approx_bytes: 1, recommendation: "r".into(), tokenizer_required: false, checksum: None, download_url: None, state: ModelState::Installed };
+        let r = GenerationRequest {
+            text: "hi".into(),
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+        let c = AppConfig {
+            binary_path: "/b".into(),
+            models_path: "/m".into(),
+            outputs_path: "/o".into(),
+            default_model_id: "s2".into(),
+            cpu_threads: 1,
+            gpu_enabled: true,
+        };
+        let m = LocalModel {
+            id: "s2".into(),
+            quant: ModelQuant::Q6,
+            filename: "f".into(),
+            display_size: "1".into(),
+            approx_bytes: 1,
+            recommendation: "r".into(),
+            tokenizer_required: false,
+            checksum: None,
+            download_url: None,
+            state: ModelState::Installed,
+        };
         let s = GenerationCommandSpec::from_request(&r, &c, &m, "j1");
         assert!(s.args.contains(&"hi".to_string()));
         assert!(s.output_path.to_string_lossy().contains("j1"));
     }
+
     #[test]
-    fn default_pm_idle() { let p = ProcessManager::default(); assert!(p.child.is_none()); }
+    fn default_pm_idle() {
+        let p = ProcessManager::default();
+        assert!(p.child.is_none());
+    }
+
     #[test]
-    fn cancel_noop() { assert!(!ProcessManager::default().cancel_active()); }
+    fn cancel_noop() {
+        assert!(!ProcessManager::default().cancel_active());
+    }
 }

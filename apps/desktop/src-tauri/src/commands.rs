@@ -3,7 +3,7 @@ use crate::diagnostics;
 use crate::downloads;
 use crate::history;
 use crate::models::{
-    AppConfig, GenerationJob, GenerationLogLine, GenerationRequest,
+    AppConfig, GenerationJob, GenerationLogLine, GenerationRequest, GenerationStatus,
     HistoryRecord, LocalModel, SystemInfo, VoicePreset,
 };
 use crate::presets;
@@ -62,11 +62,13 @@ pub fn run_generation(
     process_manager: State<'_, Mutex<ProcessManager>>,
     app: tauri::AppHandle,
 ) -> Result<GenerationJob, String> {
+    // Server-side request validation before touching filesystem or spawning.
+    request.validate()?;
+
     let cfg = config::load_app_config(&app);
 
-    if cfg.binary_path.is_empty() {
-        return Err("binary path is not configured".to_string());
-    }
+    // Validate persisted config before spawning.
+    cfg.validate()?;
 
     let models = downloads::list_local_models(std::path::Path::new(&cfg.models_path));
     let model = models
@@ -106,12 +108,42 @@ pub fn cancel_generation(
     job_id: String,
     process_manager: State<'_, Mutex<ProcessManager>>,
 ) -> bool {
-    if let Ok(mut manager) = process_manager.lock() {
-        if manager.active_job.as_ref().map(|j| &j.id) == Some(&job_id) {
-            return manager.cancel_active();
+    // Extract the child from the manager, release the lock, then kill/wait.
+    let child = {
+        let mut manager = match process_manager.lock() {
+            Ok(m) => m,
+            Err(_) => return false,
+        };
+        if manager.active_job.as_ref().map(|j| &j.id) != Some(&job_id) {
+            return false;
+        }
+        manager.child.take()
+    };
+
+    let Some(mut child) = child else {
+        return false;
+    };
+
+    // Kill and wait outside the lock — prevents blocking log reads.
+    let _ = child.kill();
+    let _ = child.wait();
+
+    // Re-acquire lock to finalize state.
+    let mut manager = match process_manager.lock() {
+        Ok(m) => m,
+        Err(_) => return false,
+    };
+    manager.drain();
+    manager.clear_log_channel();
+    manager.join_finished_handles();
+    if let Some(ref mut job) = manager.active_job {
+        if !matches!(job.status, GenerationStatus::Completed | GenerationStatus::Failed) {
+            job.status = GenerationStatus::Cancelled;
+            job.completed_at =
+                Some(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true));
         }
     }
-    false
+    true
 }
 
 #[tauri::command(rename_all = "camelCase")]

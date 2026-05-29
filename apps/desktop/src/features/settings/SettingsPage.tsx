@@ -1,14 +1,16 @@
+import { z } from "zod";
+import type { Resolver } from "react-hook-form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { settingsSchema } from "@voice-of-fish/shared/schemas";
-import { S2_MODEL_MANIFEST } from "@voice-of-fish/shared/constants";
-import type { AppConfig } from "@voice-of-fish/shared";
+import { DEFAULT_APP_CONFIG, S2_MODEL_MANIFEST } from "@voice-of-fish/shared/constants";
 import { useAppStore } from "@/stores/useAppStore";
 import { studioClient } from "@/lib/tauri";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { t } from "@/lib/i18n";
+
+type SettingsFormValues = z.infer<typeof settingsSchema>;
 
 export function SettingsPage() {
   const config = useAppStore((state) => state.config);
@@ -18,24 +20,13 @@ export function SettingsPage() {
     register,
     handleSubmit,
     formState: { errors, isDirty, isValid },
-  } = useForm<AppConfig>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(settingsSchema) as any,
-    defaultValues: config ?? {
-      mode: "simple",
-      binaryPath: "",
-      modelsPath: "",
-      outputsPath: "",
-      defaultModelId: S2_MODEL_MANIFEST[1]!.id,
-      defaultAudioFormat: "wav",
-      cpuThreads: 4,
-      gpuEnabled: false,
-      advancedArgs: {},
-    },
+  } = useForm<SettingsFormValues>({
+    resolver: zodResolver(settingsSchema) as Resolver<SettingsFormValues>,
+    defaultValues: config ?? { ...DEFAULT_APP_CONFIG },
     mode: "onBlur",
   });
 
-  const onSubmit = async (values: AppConfig) => {
+  const onSubmit = async (values: SettingsFormValues) => {
     await studioClient.saveAppConfig(values);
     saveConfig(values);
   };
@@ -94,25 +85,6 @@ export function SettingsPage() {
             <div className="flex items-center gap-2">
               <input id="gpuEnabled" type="checkbox" {...register("gpuEnabled")} className="h-4 w-4 accent-accent" />
               <label htmlFor="gpuEnabled" className="text-sm font-medium text-studio-foreground">Enable GPU</label>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Mode */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Mode</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" value="simple" {...register("mode")} className="h-4 w-4 accent-accent" />
-                <span className="text-sm">Simple — {t("outputModeSimpleDesc")}</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" value="advanced" {...register("mode")} className="h-4 w-4 accent-accent" />
-                <span className="text-sm">Advanced — {t("outputModeAdvancedDesc")}</span>
-              </label>
             </div>
           </CardContent>
         </Card>

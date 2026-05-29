@@ -75,7 +75,7 @@ export function validateModelFile(
   return { valid: true, quant, error: null };
 }
 
-export interface PathValidation {
+interface PathValidation {
   valid: boolean;
   error: string | null;
 }

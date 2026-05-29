@@ -38,8 +38,11 @@ pub fn load_app_config(app: &AppHandle) -> AppConfig {
     }
 }
 
-/// Persists the app config to disk.
+/// Persists the app config to disk. Validates paths before saving.
 pub fn save_app_config(app: &AppHandle, config: &AppConfig) -> Result<AppConfig, String> {
+    // Server-side validation before persisting
+    config.validate()?;
+
     let store = app
         .store(STORE_FILENAME)
         .map_err(|e| format!("failed to open config store for save: {e}"))?;
@@ -62,15 +65,12 @@ pub fn get_default_config() -> AppConfig {
     let outputs_path = home.join("voice-of-fish").join("outputs");
 
     AppConfig {
-        mode: crate::models::AppMode::Simple,
         binary_path: String::new(),
         models_path: models_path.to_string_lossy().to_string(),
         outputs_path: outputs_path.to_string_lossy().to_string(),
         default_model_id: "s2-q6".to_string(),
-        default_audio_format: crate::models::AudioFormat::Wav,
         cpu_threads: 8,
         gpu_enabled: true,
-        advanced_args: std::collections::BTreeMap::new(),
     }
 }
 
@@ -89,13 +89,10 @@ mod tests {
     #[test]
     fn default_config_has_expected_defaults() {
         let config = get_default_config();
-        assert_eq!(config.mode, crate::models::AppMode::Simple);
         assert!(config.binary_path.is_empty());
         assert_eq!(config.default_model_id, "s2-q6");
-        assert_eq!(config.default_audio_format, crate::models::AudioFormat::Wav);
         assert_eq!(config.cpu_threads, 8);
         assert!(config.gpu_enabled);
-        assert!(config.advanced_args.is_empty());
     }
 
     #[test]

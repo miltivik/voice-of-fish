@@ -1,12 +1,16 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+/// Maximum text length for a generation request (characters).
+pub const MAX_TEXT_LENGTH: usize = 8_000;
+/// Minimum text length for a generation request.
+pub const MIN_TEXT_LENGTH: usize = 1;
+/// Allowed language codes for generation requests.
+pub const SUPPORTED_LANGUAGES: &[&str] = &[
+    "en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru", "nl",
+    "cs", "ar", "zh-cn", "ja", "hu", "ko", "hi",
+];
+/// Allowed extensions for reference audio files.
+pub const ALLOWED_AUDIO_EXTENSIONS: &[&str] = &["wav", "mp3", "flac"];
 
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum AppMode {
-    Simple,
-    Advanced,
-}
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -43,40 +47,67 @@ pub enum GenerationStatus {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-#[serde(untagged)]
-pub enum ConfigValue {
-    String(String),
-    Number(f64),
-    Bool(bool),
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
-    pub mode: AppMode,
     pub binary_path: String,
     pub models_path: String,
     pub outputs_path: String,
     pub default_model_id: String,
-    pub default_audio_format: AudioFormat,
     pub cpu_threads: u16,
     pub gpu_enabled: bool,
-    pub advanced_args: BTreeMap<String, ConfigValue>,
 }
 
 impl AppConfig {
     pub fn mock() -> Self {
         Self {
-            mode: AppMode::Simple,
             binary_path: String::new(),
             models_path: "C:\\voice-of-fish\\models".to_string(),
             outputs_path: "C:\\voice-of-fish\\outputs".to_string(),
             default_model_id: "s2-q6".to_string(),
-            default_audio_format: AudioFormat::Wav,
             cpu_threads: 8,
             gpu_enabled: true,
-            advanced_args: BTreeMap::new(),
         }
+    }
+
+    /// Validates that binary_path is an existing executable file with an absolute path.
+    /// Rejects relative paths, directories, and non-existent files.
+    pub fn validate(&self) -> Result<(), String> {
+        use std::path::Path;
+
+        // binary_path: must be absolute and point to an existing file
+        let bp = Path::new(&self.binary_path);
+        if !bp.is_absolute() {
+            return Err(format!(
+                "binary_path must be absolute, got: {}",
+                self.binary_path
+            ));
+        }
+        if !bp.is_file() {
+            return Err(format!(
+                "binary_path does not exist or is not a file: {}",
+                self.binary_path
+            ));
+        }
+
+        // models_path: must be absolute
+        let mp = Path::new(&self.models_path);
+        if !mp.is_absolute() {
+            return Err(format!(
+                "models_path must be absolute, got: {}",
+                self.models_path
+            ));
+        }
+
+        // outputs_path: must be absolute
+        let op = Path::new(&self.outputs_path);
+        if !op.is_absolute() {
+            return Err(format!(
+                "outputs_path must be absolute, got: {}",
+                self.outputs_path
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -204,6 +235,55 @@ pub struct GenerationRequest {
     pub reference_audio_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reference_text: Option<String>,
+}
+
+impl GenerationRequest {
+    /// Validates the generation request server-side.
+    /// Enforces text length limits, language allowlist, and reference audio path safety.
+    pub fn validate(&self) -> Result<(), String> {
+        let text_len = self.text.trim().len();
+        if text_len < MIN_TEXT_LENGTH {
+            return Err(format!(
+                "text must be at least {} character(s), got {text_len}",
+                MIN_TEXT_LENGTH
+            ));
+        }
+        if text_len > MAX_TEXT_LENGTH {
+            return Err(format!(
+                "text exceeds maximum length of {MAX_TEXT_LENGTH} characters"
+            ));
+        }
+
+        let lang = self.language.trim().to_lowercase();
+        if !SUPPORTED_LANGUAGES.contains(&lang.as_str()) {
+            return Err(format!("unsupported language: {lang}"));
+        }
+
+        if let Some(ref audio_path) = self.reference_audio_path {
+            let ap = std::path::Path::new(audio_path);
+            if !ap.is_absolute() {
+                return Err(format!(
+                    "reference_audio_path must be absolute, got: {audio_path}"
+                ));
+            }
+            match ap.extension().and_then(|e| e.to_str()) {
+                Some(ext) if ALLOWED_AUDIO_EXTENSIONS.contains(&ext.to_lowercase().as_str()) => {}
+                Some(ext) => {
+                    return Err(format!(
+                        "reference audio file extension .{ext} is not allowed"
+                    ));
+                }
+                None => {
+                    return Err("reference_audio_path has no file extension".to_string());
+                }
+            }
+            if !ap.is_file() {
+                return Err(format!("reference audio file not found: {audio_path}"));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]

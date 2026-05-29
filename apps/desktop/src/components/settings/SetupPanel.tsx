@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { AppConfig, AppMode, ModelQuant } from "@voice-of-fish/shared";
+import type { AppConfig, ModelQuant } from "@voice-of-fish/shared";
+import { DEFAULT_APP_CONFIG } from "@voice-of-fish/shared/constants";
 import { t } from "@/lib/i18n";
 import { OnboardingProgressRail } from "./OnboardingProgressRail";
 import { OnboardingEngineStep } from "./OnboardingEngineStep";
@@ -26,7 +27,6 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
   const [modelValid, setModelValid] = useState(false);
 
   // Step 3 state
-  const [mode, setMode] = useState<AppMode>("simple");
   const [outputsPath, setOutputsPath] = useState("");
   const [outputValid, setOutputValid] = useState(false);
 
@@ -61,15 +61,12 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
     if (!engineValid || !modelReady || !outputValid) return;
 
     onSave({
-      mode,
       binaryPath,
       modelsPath,
       outputsPath,
-      defaultModelId: selectedQuant ? modelIdFromQuant(selectedQuant) : "s2-q6",
-      defaultAudioFormat: "wav",
-      cpuThreads: 8,
-      gpuEnabled: true,
-      advancedArgs: {},
+      defaultModelId: selectedQuant ? modelIdFromQuant(selectedQuant) : DEFAULT_APP_CONFIG.defaultModelId,
+      cpuThreads: DEFAULT_APP_CONFIG.cpuThreads,
+      gpuEnabled: DEFAULT_APP_CONFIG.gpuEnabled,
     });
   };
 
@@ -103,8 +100,6 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
             )}
             {step === "output" && (
               <OnboardingOutputStep
-                mode={mode}
-                onModeChange={setMode}
                 outputsPath={outputsPath}
                 onOutputsPathChange={setOutputsPath}
                 binaryPath={binaryPath}
