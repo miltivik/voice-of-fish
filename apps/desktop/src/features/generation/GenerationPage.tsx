@@ -74,14 +74,18 @@ export function GenerationPage() {
       useAppStore.getState().setFooterStatus("ready");
       toast.success("Generation completed");
     },
-    onError: () => {
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[GenerationPage] mutation failed:', message);
       useAppStore.getState().setFooterStatus("error");
-      toast.error("Generation failed");
+      useGenerationStore.getState().setStatus("failed");
+      toast.error(`Generation failed: ${message}`);
       setTimeout(() => {
         useAppStore.getState().setFooterStatus("ready");
-      }, 3000);
+      }, 5000);
     },
   });
+
   // Reset footerStatus on unmount to clear 'error' state
   useEffect(() => {
     return () => {
