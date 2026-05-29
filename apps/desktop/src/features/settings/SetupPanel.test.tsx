@@ -51,6 +51,7 @@ describe("SetupPanel", () => {
     expect(
       screen.getByRole("heading", { name: /choose your output folder/i }),
     ).toBeVisible();
+    await user.click(screen.getByRole("radio", { name: /advanced/i }));
     const outputInput = screen.getByLabelText("Output folder path");
     await user.clear(outputInput);
     await user.type(outputInput, "/home/test/voice-of-fish/outputs");
@@ -66,11 +67,14 @@ describe("SetupPanel", () => {
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
+        mode: "advanced",
         binaryPath: "/home/test/voice-of-fish/s2.cpp/s2",
         outputsPath: "/home/test/voice-of-fish/outputs",
         defaultModelId: "s2-q6",
+        defaultAudioFormat: "wav",
         cpuThreads: 8,
         gpuEnabled: true,
+        advancedArgs: {},
         modelsPath: "~/voice-of-fish/models",
       }),
     );

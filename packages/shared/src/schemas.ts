@@ -35,7 +35,18 @@ const optionalSeed = z.preprocess(
   z.coerce.number().int().min(0).max(SEED_MAX).optional(),
 );
 
+const appModeSchema = z.enum(["simple", "advanced"]).default("simple");
+const advancedArgValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+]);
+const advancedArgsSchema = z
+  .record(z.string(), advancedArgValueSchema)
+  .default({});
+
 export const setupSchema = z.object({
+  mode: appModeSchema,
   binaryPath: nonBlank,
   modelsPath: nonBlank,
   outputsPath: nonBlank,
@@ -43,8 +54,10 @@ export const setupSchema = z.object({
 
 export const appConfigSchema = setupSchema.extend({
   defaultModelId: nonBlank,
+  defaultAudioFormat: z.literal("wav").default("wav"),
   cpuThreads: z.coerce.number().int().min(1).max(CPU_THREADS_MAX),
   gpuEnabled: z.boolean(),
+  advancedArgs: advancedArgsSchema,
 });
 
 export const generationRequestSchema = z.object({

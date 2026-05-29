@@ -1,4 +1,4 @@
-use crate::models::AppConfig;
+use crate::models::{AppConfig, AppMode, AudioFormat};
 use std::path::PathBuf;
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
@@ -65,12 +65,15 @@ pub fn get_default_config() -> AppConfig {
     let outputs_path = home.join("voice-of-fish").join("outputs");
 
     AppConfig {
+        mode: AppMode::Simple,
         binary_path: String::new(),
         models_path: models_path.to_string_lossy().to_string(),
         outputs_path: outputs_path.to_string_lossy().to_string(),
         default_model_id: "s2-q6".to_string(),
+        default_audio_format: AudioFormat::Wav,
         cpu_threads: 8,
         gpu_enabled: true,
+        advanced_args: Default::default(),
     }
 }
 
@@ -89,10 +92,13 @@ mod tests {
     #[test]
     fn default_config_has_expected_defaults() {
         let config = get_default_config();
+        assert_eq!(config.mode, AppMode::Simple);
         assert!(config.binary_path.is_empty());
         assert_eq!(config.default_model_id, "s2-q6");
+        assert_eq!(config.default_audio_format, AudioFormat::Wav);
         assert_eq!(config.cpu_threads, 8);
         assert!(config.gpu_enabled);
+        assert!(config.advanced_args.is_empty());
     }
 
     #[test]

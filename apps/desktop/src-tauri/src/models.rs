@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 /// Maximum text length for a generation request (characters).
 pub const MAX_TEXT_LENGTH: usize = 8_000;
 /// Minimum text length for a generation request.
@@ -10,6 +11,13 @@ pub const SUPPORTED_LANGUAGES: &[&str] = &[
 ];
 /// Allowed extensions for reference audio files.
 pub const ALLOWED_AUDIO_EXTENSIONS: &[&str] = &["wav", "mp3", "flac"];
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum AppMode {
+    Simple,
+    Advanced,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -48,12 +56,34 @@ pub enum GenerationStatus {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
+    #[serde(default = "default_app_mode")]
+    pub mode: AppMode,
     pub binary_path: String,
     pub models_path: String,
     pub outputs_path: String,
     pub default_model_id: String,
+    #[serde(default = "default_audio_format")]
+    pub default_audio_format: AudioFormat,
     pub cpu_threads: u16,
     pub gpu_enabled: bool,
+    #[serde(default)]
+    pub advanced_args: HashMap<String, AdvancedArgValue>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+#[serde(untagged)]
+pub enum AdvancedArgValue {
+    String(String),
+    Number(f64),
+    Boolean(bool),
+}
+
+fn default_app_mode() -> AppMode {
+    AppMode::Simple
+}
+
+fn default_audio_format() -> AudioFormat {
+    AudioFormat::Wav
 }
 
 impl AppConfig {

@@ -329,7 +329,7 @@ impl ProcessManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{AppConfig, LocalModel, ModelQuant, ModelState};
+    use crate::models::{AppConfig, AppMode, AudioFormat, LocalModel, ModelQuant, ModelState};
 
     #[test]
     fn sanitize_removes_ansi() {
@@ -371,12 +371,15 @@ mod tests {
             reference_text: None,
         };
         let c = AppConfig {
+            mode: AppMode::Simple,
             binary_path: "/b".into(),
             models_path: "/m".into(),
             outputs_path: "/o".into(),
             default_model_id: "s2".into(),
+            default_audio_format: AudioFormat::Wav,
             cpu_threads: 1,
             gpu_enabled: true,
+            advanced_args: Default::default(),
         };
         let m = LocalModel {
             id: "s2".into(),

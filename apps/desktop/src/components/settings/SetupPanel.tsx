@@ -1,6 +1,6 @@
 import { getPlatformDefaultPaths } from "@/lib/platform";
 import { useState } from "react";
-import type { AppConfig, ModelQuant } from "@voice-of-fish/shared";
+import type { AppConfig, AppMode, ModelQuant } from "@voice-of-fish/shared";
 import { DEFAULT_APP_CONFIG } from "@voice-of-fish/shared/constants";
 import { t } from "@/lib/i18n";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
   const [modelValid, setModelValid] = useState(false);
 
   // Step 3 state
+  const [mode, setMode] = useState<AppMode>(DEFAULT_APP_CONFIG.mode);
   const [outputsPath, setOutputsPath] = useState(defaults.outputsPath);
   const [outputValid, setOutputValid] = useState(!!defaults.outputsPath.trim());
 
@@ -65,12 +66,15 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
 
     try {
       await onSave({
+        mode,
         binaryPath,
         modelsPath,
         outputsPath,
         defaultModelId: selectedQuant ? modelIdFromQuant(selectedQuant) : DEFAULT_APP_CONFIG.defaultModelId,
+        defaultAudioFormat: DEFAULT_APP_CONFIG.defaultAudioFormat,
         cpuThreads: DEFAULT_APP_CONFIG.cpuThreads,
         gpuEnabled: DEFAULT_APP_CONFIG.gpuEnabled,
+        advancedArgs: DEFAULT_APP_CONFIG.advancedArgs,
       });
     } catch (e) {
       toast.error(`Failed to save configuration: ${e}`);
@@ -107,6 +111,8 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
             )}
             {step === "output" && (
               <OnboardingOutputStep
+                mode={mode}
+                onModeChange={setMode}
                 outputsPath={outputsPath}
                 onOutputsPathChange={setOutputsPath}
                 binaryPath={binaryPath}

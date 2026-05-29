@@ -1,10 +1,13 @@
 export const DEFAULT_APP_CONFIG = {
+  mode: "simple",
   binaryPath: "",
   modelsPath: "",
   outputsPath: "",
   defaultModelId: "s2-q6",
+  defaultAudioFormat: "wav",
   cpuThreads: 8,
   gpuEnabled: true,
+  advancedArgs: {},
 } as const;
 
 import type { HistoryRecord, ModelManifestEntry } from "./types";

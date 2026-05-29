@@ -1,11 +1,13 @@
 import { useState, useCallback } from "react";
-import type { ModelQuant } from "@voice-of-fish/shared";
+import type { AppMode, ModelQuant } from "@voice-of-fish/shared";
 import { t } from "@/lib/i18n";
 import { validateOutputPath } from "./onboarding-validation";
 import { getPlatformDefaultPaths } from "@/lib/platform";
 import { pickFolderPath } from "@/lib/tauri";
 
 interface OnboardingOutputStepProps {
+  mode: AppMode;
+  onModeChange: (mode: AppMode) => void;
   outputsPath: string;
   onOutputsPathChange: (path: string) => void;
   binaryPath: string;
@@ -15,6 +17,8 @@ interface OnboardingOutputStepProps {
 }
 
 export function OnboardingOutputStep({
+  mode,
+  onModeChange,
   outputsPath,
   onOutputsPathChange,
   binaryPath,
@@ -72,6 +76,46 @@ export function OnboardingOutputStep({
           {t("outputBody")}
         </p>
       </div>
+
+      {/* Mode selector */}
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-studio-foreground">
+          Mode
+        </legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(["simple", "advanced"] as const).map((value) => (
+            <label
+              key={value}
+              className={`flex cursor-pointer gap-3 rounded-lg border px-3 py-3 transition-colors ${
+                mode === value
+                  ? "border-accent bg-accent/10"
+                  : "border-line bg-panel hover:bg-line/40"
+              }`}
+            >
+              <input
+                type="radio"
+                name="setupMode"
+                value={value}
+                checked={mode === value}
+                onChange={() => onModeChange(value)}
+                className="mt-0.5 h-4 w-4 accent-accent"
+              />
+              <span>
+                <span className="block text-sm font-medium text-studio-foreground">
+                  {value === "simple"
+                    ? t("outputModeSimple")
+                    : t("outputModeAdvanced")}
+                </span>
+                <span className="mt-1 block text-xs text-muted">
+                  {value === "simple"
+                    ? t("outputModeSimpleDesc")
+                    : t("outputModeAdvancedDesc")}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       {/* Output folder */}
       <div className="space-y-2">
