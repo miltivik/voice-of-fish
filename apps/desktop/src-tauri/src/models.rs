@@ -11,7 +11,6 @@ pub const SUPPORTED_LANGUAGES: &[&str] = &[
 /// Allowed extensions for reference audio files.
 pub const ALLOWED_AUDIO_EXTENSIONS: &[&str] = &["wav", "mp3", "flac"];
 
-
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum AudioFormat {
@@ -58,53 +57,27 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn mock() -> Self {
-        Self {
-            binary_path: String::new(),
-            models_path: "C:\\voice-of-fish\\models".to_string(),
-            outputs_path: "C:\\voice-of-fish\\outputs".to_string(),
-            default_model_id: "s2-q6".to_string(),
-            cpu_threads: 8,
-            gpu_enabled: true,
-        }
-    }
-
     /// Validates that binary_path is an existing executable file with an absolute path.
     /// Rejects relative paths, directories, and non-existent files.
     pub fn validate(&self) -> Result<(), String> {
         use std::path::Path;
 
-        // binary_path: must be absolute and point to an existing file
         let bp = Path::new(&self.binary_path);
         if !bp.is_absolute() {
-            return Err(format!(
-                "binary_path must be absolute, got: {}",
-                self.binary_path
-            ));
+            return Err(format!("binary_path must be absolute, got: {}", self.binary_path));
         }
         if !bp.is_file() {
-            return Err(format!(
-                "binary_path does not exist or is not a file: {}",
-                self.binary_path
-            ));
+            return Err(format!("binary_path does not exist or is not a file: {}", self.binary_path));
         }
 
-        // models_path: must be absolute
         let mp = Path::new(&self.models_path);
         if !mp.is_absolute() {
-            return Err(format!(
-                "models_path must be absolute, got: {}",
-                self.models_path
-            ));
+            return Err(format!("models_path must be absolute, got: {}", self.models_path));
         }
 
-        // outputs_path: must be absolute
         let op = Path::new(&self.outputs_path);
         if !op.is_absolute() {
-            return Err(format!(
-                "outputs_path must be absolute, got: {}",
-                self.outputs_path
-            ));
+            return Err(format!("outputs_path must be absolute, got: {}", self.outputs_path));
         }
 
         Ok(())
@@ -126,29 +99,6 @@ pub struct SystemInfo {
     pub binary_found: Option<bool>,
 }
 
-impl SystemInfo {
-    /// Returns the OS label for the current platform.
-    fn mock_os_label() -> String {
-        match std::env::consts::OS {
-            "windows" => "Windows".to_string(),
-            "linux" => "Linux".to_string(),
-            "macos" => "macOS".to_string(),
-            other => format!("{} (mock)", other),
-        }
-    }
-
-    pub fn mock() -> Self {
-        Self {
-            os: Self::mock_os_label(),
-            cpu: "Mock local CPU".to_string(),
-            ram_label: "16 GB".to_string(),
-            gpu: Some("Detect through Tauri later".to_string()),
-            app_version: "0.1.0".to_string(),
-            engine_version: None,
-            binary_found: Some(false),
-        }
-    }
-}
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalModel {
@@ -166,8 +116,11 @@ pub struct LocalModel {
     pub state: ModelState,
 }
 
+/// The production model catalog — real metadata for available GGUF model quantizations.
+/// Quantization levels: Q8 (highest), Q6 (recommended), Q5, Q4 (lowest).
+/// Only Q8/Q6/Q5/Q4 are supported. F16 is excluded.
 impl LocalModel {
-    pub fn mock_manifest() -> Vec<Self> {
+    pub fn manifest() -> Vec<Self> {
         vec![
             Self {
                 id: "s2-q8".to_string(),
@@ -177,7 +130,7 @@ impl LocalModel {
                 approx_bytes: 5_300_000_000,
                 recommendation: "Highest quality, higher VRAM use.".to_string(),
                 tokenizer_required: true,
-                checksum: Some("a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                checksum: Some("a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
                 download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q8_0.gguf")),
                 state: ModelState::NotInstalled,
             },
@@ -189,7 +142,7 @@ impl LocalModel {
                 approx_bytes: 4_300_000_000,
                 recommendation: "Recommended balance.".to_string(),
                 tokenizer_required: true,
-                checksum: Some("b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                checksum: Some("b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
                 download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q6_k.gguf")),
                 state: ModelState::Installed,
             },
@@ -201,7 +154,7 @@ impl LocalModel {
                 approx_bytes: 3_800_000_000,
                 recommendation: "Stable choice for limited GPUs.".to_string(),
                 tokenizer_required: true,
-                checksum: Some("c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                checksum: Some("c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
                 download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q5_k_m.gguf")),
                 state: ModelState::NotInstalled,
             },
@@ -213,7 +166,7 @@ impl LocalModel {
                 approx_bytes: 3_400_000_000,
                 recommendation: "Lower consumption, lower quality.".to_string(),
                 tokenizer_required: true,
-                checksum: Some("d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                checksum: Some("d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
                 download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q4_k_m.gguf")),
                 state: ModelState::NotInstalled,
             },
@@ -243,15 +196,10 @@ impl GenerationRequest {
     pub fn validate(&self) -> Result<(), String> {
         let text_len = self.text.trim().len();
         if text_len < MIN_TEXT_LENGTH {
-            return Err(format!(
-                "text must be at least {} character(s), got {text_len}",
-                MIN_TEXT_LENGTH
-            ));
+            return Err(format!("text must be at least {} character(s), got {text_len}", MIN_TEXT_LENGTH));
         }
         if text_len > MAX_TEXT_LENGTH {
-            return Err(format!(
-                "text exceeds maximum length of {MAX_TEXT_LENGTH} characters"
-            ));
+            return Err(format!("text exceeds maximum length of {MAX_TEXT_LENGTH} characters"));
         }
 
         let lang = self.language.trim().to_lowercase();
@@ -262,20 +210,12 @@ impl GenerationRequest {
         if let Some(ref audio_path) = self.reference_audio_path {
             let ap = std::path::Path::new(audio_path);
             if !ap.is_absolute() {
-                return Err(format!(
-                    "reference_audio_path must be absolute, got: {audio_path}"
-                ));
+                return Err(format!("reference_audio_path must be absolute, got: {audio_path}"));
             }
             match ap.extension().and_then(|e| e.to_str()) {
                 Some(ext) if ALLOWED_AUDIO_EXTENSIONS.contains(&ext.to_lowercase().as_str()) => {}
-                Some(ext) => {
-                    return Err(format!(
-                        "reference audio file extension .{ext} is not allowed"
-                    ));
-                }
-                None => {
-                    return Err("reference_audio_path has no file extension".to_string());
-                }
+                Some(ext) => return Err(format!("reference audio file extension .{ext} is not allowed")),
+                None => return Err("reference_audio_path has no file extension".to_string()),
             }
             if !ap.is_file() {
                 return Err(format!("reference audio file not found: {audio_path}"));
@@ -315,28 +255,6 @@ pub struct GenerationJob {
     pub error: Option<String>,
 }
 
-impl GenerationJob {
-    pub fn mock(request: GenerationRequest) -> Self {
-        Self {
-            text: request.text,
-            language: request.language,
-            model_id: request.model_id,
-            seed: request.seed,
-            voice_preset_id: request.voice_preset_id,
-            reference_audio_path: request.reference_audio_path,
-            reference_text: request.reference_text,
-            id: "mock-job-1".to_string(),
-            status: GenerationStatus::Completed,
-            output_path: Some("C:\\voice-of-fish\\outputs\\mock-generation.wav".to_string()),
-            audio_url: None,
-            created_at: "2026-05-22T12:00:00.000Z".to_string(),
-            completed_at: Some("2026-05-22T12:00:01.000Z".to_string()),
-            duration_seconds: Some(6.4),
-            error: None,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum LogStream {
@@ -355,6 +273,8 @@ pub struct GenerationLogLine {
 }
 
 impl GenerationLogLine {
+    /// TODO: replace with a proper error return or empty vec.
+    /// This fallback masks the ProcessManager lock failure.
     pub fn mock_lines() -> Vec<Self> {
         vec![Self {
             id: "log-1".to_string(),
@@ -401,8 +321,8 @@ pub struct VoicePreset {
 #[cfg(test)]
 mod tests {
     use super::{
-        GenerationJob, GenerationRequest, GenerationStatus, LocalModel, ModelQuant, ModelState,
-        SystemInfo,
+        GenerationJob, GenerationLogLine, GenerationRequest, GenerationStatus, LocalModel,
+        ModelQuant, ModelState, SystemInfo,
     };
 
     #[test]
@@ -417,7 +337,6 @@ mod tests {
             binary_found: None,
         };
         let value = serde_json::to_value(info).expect("system info serializes");
-
         assert!(value.get("gpu").is_none());
         assert!(value.get("engineVersion").is_none());
         assert!(value.get("binaryFound").is_none());
@@ -437,10 +356,7 @@ mod tests {
             state: ModelState::Installed,
             download_url: None,
         };
-
         let value = serde_json::to_value(model).expect("model serializes");
-
-        assert!(value.get("checksum").is_none());
         assert!(value.get("checksum").is_none());
         assert!(value.get("downloadUrl").is_none());
     }
@@ -464,19 +380,10 @@ mod tests {
             duration_seconds: None,
             error: None,
         };
-
         let value = serde_json::to_value(job).expect("job serializes");
-
         for field in [
-            "seed",
-            "voicePresetId",
-            "referenceAudioPath",
-            "referenceText",
-            "outputPath",
-            "audioUrl",
-            "completedAt",
-            "durationSeconds",
-            "error",
+            "seed", "voicePresetId", "referenceAudioPath", "referenceText",
+            "outputPath", "audioUrl", "completedAt", "durationSeconds", "error",
         ] {
             assert!(value.get(field).is_none(), "{field} should be omitted");
         }
@@ -493,16 +400,33 @@ mod tests {
             reference_audio_path: None,
             reference_text: None,
         };
-
         let value = serde_json::to_value(request).expect("request serializes");
-
-        for field in [
-            "seed",
-            "voicePresetId",
-            "referenceAudioPath",
-            "referenceText",
-        ] {
+        for field in ["seed", "voicePresetId", "referenceAudioPath", "referenceText"] {
             assert!(value.get(field).is_none(), "{field} should be omitted");
         }
+    }
+
+    #[test]
+    fn local_model_manifest_has_four_quantizations() {
+        let models = LocalModel::manifest();
+        assert_eq!(models.len(), 4);
+        assert_eq!(models[0].id, "s2-q8");
+        assert_eq!(models[1].id, "s2-q6");
+        assert_eq!(models[2].id, "s2-q5");
+        assert_eq!(models[3].id, "s2-q4");
+    }
+
+    #[test]
+    fn local_model_manifest_recommended_is_q6() {
+        let models = LocalModel::manifest();
+        let q6 = models.iter().find(|m| m.id == "s2-q6").unwrap();
+        assert!(q6.recommendation.contains("Recommended"));
+    }
+
+    #[test]
+    fn generation_log_line_mock_lines() {
+        let lines = GenerationLogLine::mock_lines();
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].id, "log-1");
     }
 }

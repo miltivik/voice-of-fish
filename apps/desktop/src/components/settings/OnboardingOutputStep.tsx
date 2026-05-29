@@ -26,8 +26,8 @@ export function OnboardingOutputStep({
 
   const runValidation = useCallback(
     (path: string) => {
-      const { valid, error } = validateOutputPath(path);
-      setError(error);
+      const { valid, error: err } = validateOutputPath(path);
+      setError(err);
       onValidationChange(valid);
     },
     [onValidationChange],
@@ -49,8 +49,18 @@ export function OnboardingOutputStep({
   };
 
   const handlePathBlur = () => {
+    // Use the current DOM value, not the stale prop from closure.
+    // The input ref approach isn't needed here since we only need
+    // to validate whatever is currently in the parent state.
+    // After onChange fires, the parent state is already updated,
+    // and React will re-render with the new prop before the next
+    // event. For blur specifically, we validate the prop directly.
     if (outputsPath.trim()) {
       runValidation(outputsPath);
+    } else {
+      const defaultPath = getPlatformDefaultPaths().outputsPath;
+      onOutputsPathChange(defaultPath);
+      runValidation(defaultPath);
     }
   };
 

@@ -1,3 +1,4 @@
+import { getPlatformDefaultPaths } from "@/lib/platform";
 import { useState } from "react";
 import type { AppConfig, ModelQuant } from "@voice-of-fish/shared";
 import { DEFAULT_APP_CONFIG } from "@voice-of-fish/shared/constants";
@@ -14,21 +15,22 @@ interface SetupPanelProps {
 }
 
 export function SetupPanel({ onSave }: SetupPanelProps) {
-  const [step, setStep] = useState<OnboardingStep>("engine");
+  const defaults = getPlatformDefaultPaths();
 
   // Step 1 state
+  const [step, setStep] = useState<OnboardingStep>("engine");
   const [binaryPath, setBinaryPath] = useState("");
   const [engineValid, setEngineValid] = useState(false);
 
   // Step 2 state
-  const [modelsPath, setModelsPath] = useState("");
+  const [modelsPath, setModelsPath] = useState(defaults.modelsPath);
   const [selectedQuant, setSelectedQuant] = useState<ModelQuant | null>(null);
   const [selectedModelFile, setSelectedModelFile] = useState("");
   const [modelValid, setModelValid] = useState(false);
 
   // Step 3 state
-  const [outputsPath, setOutputsPath] = useState("");
-  const [outputValid, setOutputValid] = useState(false);
+  const [outputsPath, setOutputsPath] = useState(defaults.outputsPath);
+  const [outputValid, setOutputValid] = useState(!!defaults.outputsPath.trim());
 
   const currentIndex = STEP_ORDER.indexOf(step);
 

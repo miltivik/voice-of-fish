@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { ModelQuant } from "@voice-of-fish/shared";
 import { S2_MODEL_MANIFEST } from "@voice-of-fish/shared/constants";
 import { t } from "@/lib/i18n";
@@ -63,6 +63,13 @@ export function OnboardingModelStep({
     quant: null,
     error: null,
   });
+
+  // Pre-fill modelsPath from platform defaults if empty
+  useEffect(() => {
+    if (!modelsPath) {
+      onModelsPathChange(getPlatformDefaultPaths().modelsPath);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const runValidation = useCallback(
     (file: string) => {

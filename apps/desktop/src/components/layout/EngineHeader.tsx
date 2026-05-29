@@ -26,7 +26,7 @@ export function EngineHeader() {
         </p>
         <div className="mt-1 flex items-center gap-2 text-sm text-studio-foreground">
           <RadioTower aria-hidden="true" className="h-4 w-4 text-accent" />
-          <span>Mock engine idle</span>
+          <span>Engine idle</span>
         </div>
       </div>
       <div className="flex items-center gap-3">

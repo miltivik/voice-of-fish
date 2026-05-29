@@ -51,11 +51,9 @@ describe("SetupPanel", () => {
     expect(
       screen.getByRole("heading", { name: /choose your output folder/i }),
     ).toBeVisible();
-
-    await user.type(
-      screen.getByLabelText("Output folder path"),
-      "/home/test/voice-of-fish/outputs",
-    );
+    const outputInput = screen.getByLabelText("Output folder path");
+    await user.clear(outputInput);
+    await user.type(outputInput, "/home/test/voice-of-fish/outputs");
     await user.tab();
 
     await waitFor(() => {
@@ -73,7 +71,7 @@ describe("SetupPanel", () => {
         defaultModelId: "s2-q6",
         cpuThreads: 8,
         gpuEnabled: true,
-        modelsPath: "",
+        modelsPath: "~/voice-of-fish/models",
       }),
     );
   });
