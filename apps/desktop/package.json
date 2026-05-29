@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": {
+    "dev": "cargo build --manifest-path src-tauri/Cargo.toml && pnpm tauri dev",
     "dev:web": "vite",
     "build:web": "tsc -b && vite build",
     "preview": "vite preview",
@@ -12,7 +12,6 @@
     "format": "prettier --write . ../../README.md ../../packages/shared",
     "test": "vitest run",
     "test:e2e": "playwright test"
-  },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-dialog": "^1.1.15",
