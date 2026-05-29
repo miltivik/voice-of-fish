@@ -37,15 +37,22 @@ pub fn list_local_models(app: tauri::AppHandle) -> Vec<LocalModel> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn download_model(
+pub async fn download_model(
     model_id: String,
     app: tauri::AppHandle,
 ) -> Result<Vec<LocalModel>, String> {
-    let cfg = config::load_app_config(&app);
-    let models_path = std::path::Path::new(&cfg.models_path);
-    downloads::download_model_file(models_path, &model_id, Some(&app))
+    // Offload the blocking HTTP download + checksum I/O to a worker thread.
+    // Without spawn_blocking, this would freeze the entire UI for the duration
+    // of the download because Tauri 2 runs synchronous commands on the main thread.
+    let app_clone = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let cfg = config::load_app_config(&app_clone);
+        let models_path = std::path::Path::new(&cfg.models_path);
+        downloads::download_model_file(models_path, &model_id, Some(&app_clone))
+    })
+    .await
+    .map_err(|e| format!("download task panicked: {e}"))?
 }
-
 #[tauri::command(rename_all = "camelCase")]
 pub fn delete_model(
     model_id: String,
