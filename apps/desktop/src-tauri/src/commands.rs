@@ -12,8 +12,8 @@ use std::sync::Mutex;
 use tauri::State;
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn get_system_info() -> SystemInfo {
-    diagnostics::get_real_system_info()
+pub fn get_system_info(app: tauri::AppHandle) -> SystemInfo {
+    diagnostics::get_real_system_info(&app)
 }
 
 #[tauri::command(rename_all = "camelCase")]
