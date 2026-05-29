@@ -194,20 +194,50 @@ pub fn check_binary_exists(binary_path: String) -> bool {
     if binary_path.is_empty() {
         return false;
     }
-    let Ok(canonical) = std::fs::canonicalize(&binary_path) else {
-        return false;
+
+    // Try canonical path first, fall back to raw path.
+    let path_to_check = match std::fs::canonicalize(&binary_path) {
+        Ok(canonical) => canonical,
+        Err(e) => {
+            eprintln!(
+                "[check_binary_exists] canonicalize failed for '{}': {e}",
+                binary_path
+            );
+            // Fall back to checking the raw path directly.
+            std::path::PathBuf::from(&binary_path)
+        }
     };
-    if !canonical.is_file() {
+
+    if !path_to_check.is_file() {
+        eprintln!(
+            "[check_binary_exists] not a file: '{}'",
+            path_to_check.display()
+        );
         return false;
     }
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let Ok(metadata) = std::fs::metadata(&canonical) else {
-            return false;
-        };
-        metadata.permissions().mode() & 0o111 != 0
+        match std::fs::metadata(&path_to_check) {
+            Ok(metadata) => {
+                let has_exec = metadata.permissions().mode() & 0o111 != 0;
+                if !has_exec {
+                    eprintln!(
+                        "[check_binary_exists] no execute permission: '{}'",
+                        path_to_check.display()
+                    );
+                }
+                has_exec
+            }
+            Err(e) => {
+                eprintln!(
+                    "[check_binary_exists] metadata failed for '{}': {e}",
+                    path_to_check.display()
+                );
+                false
+            }
+        }
     }
 
     #[cfg(not(unix))]

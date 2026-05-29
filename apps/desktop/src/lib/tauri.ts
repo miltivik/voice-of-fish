@@ -146,7 +146,11 @@ export async function pickGgufPath(): Promise<string | null> {
 // --- Existence checks ---
 
 export const checkBinaryExists = (binaryPath: string) => {
-  if (!validateBinaryPath(binaryPath)) return Promise.resolve(false);
+  // The real validation happens server-side in Rust.
+  // Frontend check is informational only — don't block the IPC call.
+  if (!validateBinaryPath(binaryPath)) {
+    console.warn('[checkBinaryExists] frontend validation failed for:', binaryPath);
+  }
   return invoke<boolean>("check_binary_exists", { binaryPath });
 };
 
