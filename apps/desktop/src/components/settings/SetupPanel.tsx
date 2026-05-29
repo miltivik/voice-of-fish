@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { AppConfig, ModelQuant } from "@voice-of-fish/shared";
 import { DEFAULT_APP_CONFIG } from "@voice-of-fish/shared/constants";
 import { t } from "@/lib/i18n";
+import { toast } from "sonner";
 import { OnboardingProgressRail } from "./OnboardingProgressRail";
 import { OnboardingEngineStep } from "./OnboardingEngineStep";
 import { OnboardingModelStep } from "./OnboardingModelStep";
@@ -11,7 +12,7 @@ import { modelIdFromQuant, STEP_ORDER } from "./onboarding-validation";
 import type { OnboardingStep } from "./onboarding-validation";
 
 interface SetupPanelProps {
-  onSave: (config: AppConfig) => void;
+  onSave: (config: AppConfig) => Promise<void>;
 }
 
 export function SetupPanel({ onSave }: SetupPanelProps) {
@@ -59,17 +60,21 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     if (!engineValid || !modelReady || !outputValid) return;
 
-    onSave({
-      binaryPath,
-      modelsPath,
-      outputsPath,
-      defaultModelId: selectedQuant ? modelIdFromQuant(selectedQuant) : DEFAULT_APP_CONFIG.defaultModelId,
-      cpuThreads: DEFAULT_APP_CONFIG.cpuThreads,
-      gpuEnabled: DEFAULT_APP_CONFIG.gpuEnabled,
-    });
+    try {
+      await onSave({
+        binaryPath,
+        modelsPath,
+        outputsPath,
+        defaultModelId: selectedQuant ? modelIdFromQuant(selectedQuant) : DEFAULT_APP_CONFIG.defaultModelId,
+        cpuThreads: DEFAULT_APP_CONFIG.cpuThreads,
+        gpuEnabled: DEFAULT_APP_CONFIG.gpuEnabled,
+      });
+    } catch (e) {
+      toast.error(`Failed to save configuration: ${e}`);
+    }
   };
 
   const finishEnabled = engineValid && modelReady && outputValid;

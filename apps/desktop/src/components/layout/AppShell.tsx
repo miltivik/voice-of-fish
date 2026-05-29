@@ -1,3 +1,6 @@
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { studioClient } from "@/lib/tauri";
 import { Outlet } from "react-router-dom";
 import { SetupPanel } from "@/components/settings/SetupPanel";
 import { useAppStore } from "@/stores/useAppStore";
@@ -8,6 +11,20 @@ import { StatusFooter } from "./StatusFooter";
 export function AppShell() {
   const setupComplete = useAppStore((state) => state.setupComplete);
   const saveConfig = useAppStore((state) => state.saveConfig);
+  const hydrateConfig = useAppStore((state) => state.hydrateConfig);
+
+  // Load persisted config on mount (hydrate, not save, to avoid infinite loop)
+  const { data: persistedConfig } = useQuery({
+    queryKey: ["app-config"],
+    queryFn: () => studioClient.getAppConfig(),
+    staleTime: Infinity,
+  });
+
+  useEffect(() => {
+    if (persistedConfig) {
+      hydrateConfig(persistedConfig);
+    }
+  }, [persistedConfig, hydrateConfig]);
 
   if (!setupComplete) {
     return (
