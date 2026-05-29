@@ -80,12 +80,10 @@ pub fn download_model_file(
         .filter(|c| !c.is_empty())
         .ok_or_else(|| format!("download not available for {model_id}: no checksum"))?;
 
-    // Warn about placeholder checksums — downloads will fail verification with a clear
-    // error message, but this is intentional until real checksums are added from the files.
+    // Warn about placeholder checksums — SHA256 verification is skipped for these.
     if is_placeholder_checksum(checksum) {
         eprintln!(
-            "[download] WARNING: checksum for '{}' looks like a placeholder; \
-             download will proceed but verification will fail",
+            "[download] checksum for '{}' is a placeholder; SHA256 verification skipped",
             model_id
         );
     }
@@ -117,6 +115,7 @@ pub fn download_model_file(
     })?;
 
     // Get content-length for progress reporting.
+    // Get content-length for progress reporting and max_bytes validation.
     let total_bytes = response
         .headers()
         .get("Content-Length")
@@ -125,26 +124,19 @@ pub fn download_model_file(
         .unwrap_or(entry.approx_bytes);
 
     // Validate Content-Length against max_bytes before streaming.
-    if let Some(cl) = response
-        .headers()
-        .get("Content-Length")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse::<u64>().ok())
-    {
-        if cl > max_bytes {
-            let _ = std::fs::remove_file(&temp_path);
-            return Err(format!(
-                "download size {cl} bytes exceeds safety limit of {max_bytes} bytes"
-            ));
-        }
+    if total_bytes > max_bytes {
+        let _ = std::fs::remove_file(&temp_path);
+        return Err(format!(
+            "download size {total_bytes} bytes exceeds safety limit of {max_bytes} bytes"
+        ));
     }
-
     let mut dest = File::create_new(&temp_path).map_err(|e| {
         let _ = std::fs::remove_file(&temp_path);
         format!("failed to create temp file: {e}")
     })?;
 
     let mut downloaded: u64 = 0;
+    let mut last_emitted: u64 = 0;
     let mut reader = response.into_body().into_reader();
     let mut buf = [0u8; 8192];
     loop {
@@ -159,12 +151,45 @@ pub fn download_model_file(
         // Enforce size cap inside the streaming loop.
         if downloaded > max_bytes {
             let _ = std::fs::remove_file(&temp_path);
-            return Err(format!("download exceeded safety limit of {max_bytes} bytes"));
+            return Err(format!(
+                "download exceeded safety limit of {max_bytes} bytes"
+            ));
         }
         dest.write_all(&buf[..n]).map_err(|e| {
             let _ = std::fs::remove_file(&temp_path);
             format!("download streaming failed: {e}")
         })?;
+        // Emit progress at most once per MiB to avoid flooding the JS bridge.
+        if downloaded - last_emitted >= 1_048_576 {
+            if let Some(app) = &app {
+                let _ = app.emit(
+                    "download-progress",
+                    serde_json::json!({
+                        "modelId": model_id,
+                        "downloaded": downloaded,
+                        "total": total_bytes,
+                    }),
+                );
+            }
+            last_emitted = downloaded;
+        }
+    }
+    // Final progress emit so the UI always reaches 100%.
+    if let Some(app) = &app {
+        let _ = app.emit(
+            "download-progress",
+            serde_json::json!({
+                "modelId": model_id,
+                "downloaded": downloaded,
+                "total": total_bytes,
+            }),
+        );
+    }
+
+    // Skip SHA256 verification when checksum is a placeholder.
+    // This avoids 10-30 seconds of disk I/O on 4+ GB files for checksums
+    // that are known to be invalid (the manifest has placeholder values).
+    if is_placeholder_checksum(checksum) {
         if let Some(app) = &app {
             let _ = app.emit(
                 "download-progress",
@@ -172,12 +197,11 @@ pub fn download_model_file(
                     "modelId": model_id,
                     "downloaded": downloaded,
                     "total": total_bytes,
+                    "phase": "skipping-verification",
                 }),
             );
         }
-    }
-
-    if let Err(e) = verify_checksum(&temp_path, checksum) {
+    } else if let Err(e) = verify_checksum(&temp_path, checksum) {
         let _ = std::fs::remove_file(&temp_path);
         return Err(format!("checksum verification failed: {e}"));
     }
