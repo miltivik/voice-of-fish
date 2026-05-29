@@ -57,29 +57,63 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    /// Validates that binary_path is an existing executable file with an absolute path.
-    /// Rejects relative paths, directories, and non-existent files.
-    pub fn validate(&self) -> Result<(), String> {
+    /// Expands a leading `~` to the user's home directory.
+    fn expand_tilde(path: &str) -> String {
+        if path.starts_with('~') {
+            if let Some(home) = dirs::home_dir() {
+                return home.to_string_lossy().to_string() + &path[1..];
+            }
+        }
+        path.to_string()
+    }
+
+    /// Validates paths are absolute after tilde expansion.
+    /// Called on every config save to enforce path safety at the IPC boundary.
+    /// Does NOT require the binary to exist — only that paths are safe.
+    pub fn validate_paths(&self) -> Result<(), String> {
         use std::path::Path;
 
-        let bp = Path::new(&self.binary_path);
-        if !bp.is_absolute() {
-            return Err(format!("binary_path must be absolute, got: {}", self.binary_path));
-        }
-        if !bp.is_file() {
-            return Err(format!("binary_path does not exist or is not a file: {}", self.binary_path));
-        }
-
-        let mp = Path::new(&self.models_path);
-        if !mp.is_absolute() {
-            return Err(format!("models_path must be absolute, got: {}", self.models_path));
+        // binary_path must be absolute (allows tilde expansion)
+        let bp = Self::expand_tilde(&self.binary_path);
+        if !Path::new(&bp).is_absolute() {
+            return Err(format!(
+                "binary_path must be absolute, got: {}",
+                self.binary_path
+            ));
         }
 
-        let op = Path::new(&self.outputs_path);
-        if !op.is_absolute() {
-            return Err(format!("outputs_path must be absolute, got: {}", self.outputs_path));
+        let mp = Self::expand_tilde(&self.models_path);
+        if !Path::new(&mp).is_absolute() {
+            return Err(format!(
+                "models_path must be absolute, got: {}",
+                self.models_path
+            ));
         }
 
+        let op = Self::expand_tilde(&self.outputs_path);
+        if !Path::new(&op).is_absolute() {
+            return Err(format!(
+                "outputs_path must be absolute, got: {}",
+                self.outputs_path
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Validates the binary_path points to an existing executable file.
+    /// Called before generation to prevent spawning a non-existent binary.
+    pub fn validate_executable(&self) -> Result<(), String> {
+        use std::path::Path;
+
+        let bp = Self::expand_tilde(&self.binary_path);
+        let bp_path = Path::new(&bp);
+        if !bp_path.is_file() {
+            return Err(format!(
+                "binary_path does not exist or is not a file: {}",
+                self.binary_path
+            ));
+        }
         Ok(())
     }
 }

@@ -41,7 +41,7 @@ pub fn load_app_config(app: &AppHandle) -> AppConfig {
 /// Persists the app config to disk. Validates paths before saving.
 pub fn save_app_config(app: &AppHandle, config: &AppConfig) -> Result<AppConfig, String> {
     // Server-side validation before persisting
-    config.validate()?;
+    config.validate_paths()?;
 
     let store = app
         .store(STORE_FILENAME)

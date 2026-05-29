@@ -68,7 +68,8 @@ pub fn run_generation(
     let cfg = config::load_app_config(&app);
 
     // Validate persisted config before spawning.
-    cfg.validate()?;
+    cfg.validate_paths()?;
+    cfg.validate_executable()?;
 
     let models = downloads::list_local_models(std::path::Path::new(&cfg.models_path));
     let model = models
