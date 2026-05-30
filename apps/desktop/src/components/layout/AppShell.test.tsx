@@ -99,6 +99,7 @@ async function completeSetup(user: ReturnType<typeof userEvent.setup>) {
 describe("AppShell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     useAppStore.setState({ setupComplete: false, config: undefined });
     mockCheckBinaryExists.mockResolvedValue(false);
     mockCheckFileExists.mockResolvedValue(false);
@@ -106,8 +107,8 @@ describe("AppShell", () => {
     mockOpenFolderPicker.mockResolvedValue(null);
     mockOpenExternalLink.mockResolvedValue(undefined);
   });
-
   afterEach(() => {
+    localStorage.clear();
     useAppStore.setState({ setupComplete: false, config: undefined });
   });
 

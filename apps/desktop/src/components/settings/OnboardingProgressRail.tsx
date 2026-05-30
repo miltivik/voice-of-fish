@@ -5,6 +5,7 @@ import { STEP_ORDER } from "./onboarding-validation";
 
 interface OnboardingProgressRailProps {
   currentStep: OnboardingStep;
+  onStepClick?: (step: OnboardingStep) => void;
 }
 
 const STEP_LABELS: Record<OnboardingStep, string> = {
@@ -15,6 +16,7 @@ const STEP_LABELS: Record<OnboardingStep, string> = {
 
 export function OnboardingProgressRail({
   currentStep,
+  onStepClick,
 }: OnboardingProgressRailProps) {
   const currentIndex = STEP_ORDER.indexOf(currentStep);
 
@@ -34,11 +36,43 @@ export function OnboardingProgressRail({
       </span>
 
       {/* Steps */}
-      <nav aria-label={t("onboardingStepsNavLabel")} className="flex-1 space-y-0.5">
+      <nav
+        aria-label={t("onboardingStepsNavLabel")}
+        className="flex-1 space-y-0.5"
+      >
         {STEP_ORDER.map((step, idx) => {
           const isActive = step === currentStep;
           const isCompleted = idx < currentIndex;
           const stepNum = idx + 1;
+
+          const content = (
+            <>
+              <span
+                className={cn(
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                  isActive && "bg-accent text-studio",
+                  isCompleted && "bg-line text-muted",
+                  !isActive && !isCompleted && "bg-line/50 text-muted",
+                )}
+              >
+                {isCompleted ? "\u2713" : stepNum}
+              </span>
+              <span>{STEP_LABELS[step]}</span>
+            </>
+          );
+
+          if (isCompleted && onStepClick) {
+            return (
+              <button
+                key={step}
+                type="button"
+                onClick={() => onStepClick(step)}
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted transition-colors hover:bg-line/40 hover:text-studio-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                {content}
+              </button>
+            );
+          }
 
           return (
             <div
@@ -51,17 +85,7 @@ export function OnboardingProgressRail({
               )}
               aria-current={isActive ? "step" : undefined}
             >
-              <span
-                className={cn(
-                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                  isActive && "bg-accent text-studio",
-                  isCompleted && "bg-line text-muted",
-                  !isActive && !isCompleted && "bg-line/50 text-muted",
-                )}
-              >
-                {isCompleted ? "✓" : stepNum}
-              </span>
-              <span>{STEP_LABELS[step]}</span>
+              {content}
             </div>
           );
         })}

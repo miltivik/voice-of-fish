@@ -15,24 +15,81 @@ interface SetupPanelProps {
   onSave: (config: AppConfig) => Promise<void>;
 }
 
+const WIZARD_KEY = "vof-wizard";
+
+interface PersistedWizard {
+  step: OnboardingStep;
+  binaryPath: string;
+  modelsPath: string;
+  selectedQuant: ModelQuant | null;
+  selectedModelFile: string;
+  mode: AppMode;
+  outputsPath: string;
+}
+
+function loadWizard(): PersistedWizard | null {
+  try {
+    const raw = localStorage.getItem(WIZARD_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.step !== "string") return null;
+    return parsed as PersistedWizard;
+  } catch {
+    return null;
+  }
+}
+
+function saveWizard(state: PersistedWizard) {
+  try {
+    localStorage.setItem(WIZARD_KEY, JSON.stringify(state));
+  } catch {
+    // Storage full or unavailable — silently skip
+  }
+}
+
+function clearWizard() {
+  try {
+    localStorage.removeItem(WIZARD_KEY);
+  } catch {
+    // Silently skip
+  }
+}
+
 export function SetupPanel({ onSave }: SetupPanelProps) {
   const defaults = getPlatformDefaultPaths();
+  const persisted = loadWizard();
 
   // Step 1 state
-  const [step, setStep] = useState<OnboardingStep>("engine");
-  const [binaryPath, setBinaryPath] = useState("");
+  const [step, setStep] = useState<OnboardingStep>(
+    persisted?.step ?? "engine",
+  );
+  const [binaryPath, setBinaryPath] = useState(
+    persisted?.binaryPath ?? "",
+  );
   const [engineValid, setEngineValid] = useState(false);
 
   // Step 2 state
-  const [modelsPath, setModelsPath] = useState(defaults.modelsPath);
-  const [selectedQuant, setSelectedQuant] = useState<ModelQuant | null>(null);
-  const [selectedModelFile, setSelectedModelFile] = useState("");
+  const [modelsPath, setModelsPath] = useState(
+    persisted?.modelsPath ?? defaults.modelsPath,
+  );
+  const [selectedQuant, setSelectedQuant] = useState<ModelQuant | null>(
+    persisted?.selectedQuant ?? null,
+  );
+  const [selectedModelFile, setSelectedModelFile] = useState(
+    persisted?.selectedModelFile ?? "",
+  );
   const [modelValid, setModelValid] = useState(false);
 
   // Step 3 state
-  const [mode, setMode] = useState<AppMode>(DEFAULT_APP_CONFIG.mode);
-  const [outputsPath, setOutputsPath] = useState(defaults.outputsPath);
-  const [outputValid, setOutputValid] = useState(!!defaults.outputsPath.trim());
+  const [mode, setMode] = useState<AppMode>(
+    persisted?.mode ?? DEFAULT_APP_CONFIG.mode,
+  );
+  const [outputsPath, setOutputsPath] = useState(
+    persisted?.outputsPath ?? defaults.outputsPath,
+  );
+  const [outputValid, setOutputValid] = useState(
+    !!((persisted?.outputsPath ?? defaults.outputsPath).trim()),
+  );
 
   const currentIndex = STEP_ORDER.indexOf(step);
 
@@ -49,15 +106,31 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
     }
   };
 
+  const persistCurrentState = (nextStep: OnboardingStep) => {
+    saveWizard({
+      step: nextStep,
+      binaryPath,
+      modelsPath,
+      selectedQuant,
+      selectedModelFile,
+      mode,
+      outputsPath,
+    });
+  };
+
   const handleBack = () => {
     if (currentIndex > 0) {
-      setStep(STEP_ORDER[currentIndex - 1]);
+      const prev = STEP_ORDER[currentIndex - 1];
+      setStep(prev);
+      persistCurrentState(prev);
     }
   };
 
   const handleContinue = () => {
     if (currentIndex < STEP_ORDER.length - 1 && canContinue()) {
-      setStep(STEP_ORDER[currentIndex + 1]);
+      const next = STEP_ORDER[currentIndex + 1];
+      setStep(next);
+      persistCurrentState(next);
     }
   };
 
@@ -70,12 +143,15 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
         binaryPath,
         modelsPath,
         outputsPath,
-        defaultModelId: selectedQuant ? modelIdFromQuant(selectedQuant) : DEFAULT_APP_CONFIG.defaultModelId,
+        defaultModelId: selectedQuant
+          ? modelIdFromQuant(selectedQuant)
+          : DEFAULT_APP_CONFIG.defaultModelId,
         defaultAudioFormat: DEFAULT_APP_CONFIG.defaultAudioFormat,
         cpuThreads: DEFAULT_APP_CONFIG.cpuThreads,
         gpuEnabled: DEFAULT_APP_CONFIG.gpuEnabled,
         advancedArgs: DEFAULT_APP_CONFIG.advancedArgs,
       });
+      clearWizard();
     } catch (e) {
       toast.error(`Failed to save configuration: ${e}`);
     }
@@ -85,7 +161,13 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
 
   return (
     <div className="flex min-h-screen">
-      <OnboardingProgressRail currentStep={step} />
+      <OnboardingProgressRail
+        currentStep={step}
+        onStepClick={(clickedStep) => {
+          setStep(clickedStep);
+          persistCurrentState(clickedStep);
+        }}
+      />
 
       {/* Main content */}
       <div className="flex flex-1 flex-col min-w-0">
@@ -137,7 +219,10 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted">
-              {t("onboardingStepCounter", { current: currentIndex + 1, total: STEP_ORDER.length })}
+              {t("onboardingStepCounter", {
+                current: currentIndex + 1,
+                total: STEP_ORDER.length,
+              })}
             </span>
           </div>
 
@@ -146,7 +231,9 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
               type="button"
               onClick={handleFinish}
               disabled={!finishEnabled}
-              title={finishEnabled ? undefined : t("onboardingFinishDisabled")}
+              title={
+                finishEnabled ? undefined : t("onboardingFinishDisabled")
+              }
               className="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-studio transition-colors hover:bg-accent/80 disabled:opacity-30"
             >
               {t("onboardingFinish")}
