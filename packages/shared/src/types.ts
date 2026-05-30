@@ -99,3 +99,10 @@ export interface ProcessLogLine {
   message: string;
   createdAt: string;
 }
+
+export interface SentenceClip {
+  text: string;
+  startMs: number;
+  endMs: number;
+  wavPath: string;
+}

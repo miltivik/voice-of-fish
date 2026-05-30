@@ -36,6 +36,7 @@ fn main() {
             voice_of_fish_desktop::commands::list_voice_presets,
             voice_of_fish_desktop::commands::save_voice_preset,
             voice_of_fish_desktop::commands::delete_voice_preset,
+            voice_of_fish_desktop::commands::generate_sentences,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

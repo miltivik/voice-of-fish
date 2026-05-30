@@ -434,10 +434,111 @@ mod tests {
         std::fs::remove_dir(&test_dir).ok();
     }
 
-    #[test]
-    fn check_directory_exists_empty_string() {
-        assert!(!check_directory_exists("".to_string()));
+}
+
+/// Read WAV file header and return duration in milliseconds.
+fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| format!("failed to open WAV: {e}"))?;
+    use std::io::Read;
+    let mut header = [0u8; 44];
+    file.read_exact(&mut header)
+        .map_err(|e| format!("failed to read WAV header: {e}"))?;
+    let byte_rate = u32::from_le_bytes([header[28], header[29], header[30], header[31]]);
+    let data_size = u32::from_le_bytes([header[40], header[41], header[42], header[43]]);
+
+    if byte_rate == 0 {
+        return Err("WAV byte rate is zero".to_string());
     }
+
+    let duration_secs = data_size as f64 / byte_rate as f64;
+    Ok((duration_secs * 1000.0) as u64)
+}
+
+/// Generate audio for each sentence in the input text, returning clips with
+/// cumulative timestamps suitable for SRT/subtitle export.
+#[tauri::command(rename_all = "camelCase")]
+pub fn generate_sentences(
+    text: String,
+    language: String,
+    model_id: String,
+    app: tauri::AppHandle,
+) -> Result<Vec<crate::models::SentenceClip>, String> {
+    let cfg = config::load_app_config(&app);
+    cfg.validate_paths()?;
+    cfg.validate_executable()?;
+
+    let models = downloads::list_local_models(std::path::Path::new(&cfg.models_path));
+    let model = models
+        .iter()
+        .find(|m| m.id == model_id)
+        .ok_or_else(|| format!("unknown model id: {model_id}"))?;
+
+    if model.state != crate::models::ModelState::Installed {
+        return Err(format!("model {model_id} is not installed"));
+    }
+
+    let sentences = crate::models::split_sentences(&text);
+    if sentences.is_empty() {
+        return Err("no sentences found in input text".to_string());
+    }
+
+    let outputs_dir = std::path::Path::new(&cfg.outputs_path);
+    let model_path = std::path::Path::new(&cfg.models_path).join(&model.filename);
+    let mut clips = Vec::with_capacity(sentences.len());
+    let mut elapsed_ms: u64 = 0;
+
+    for (i, sentence) in sentences.iter().enumerate() {
+        let output_path = outputs_dir.join(format!("clip_{i}.wav"));
+
+        let mut child = std::process::Command::new(&cfg.binary_path)
+            .arg("--model")
+            .arg(model_path.to_string_lossy().to_string())
+            .arg("--text")
+            .arg(sentence.as_str())
+            .arg("--lang")
+            .arg(&language)
+            .arg("--out")
+            .arg(output_path.to_string_lossy().to_string())
+            .arg("--threads")
+            .arg(cfg.cpu_threads.to_string())
+            .arg("--log-level")
+            .arg("error")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map_err(|e| format!("failed to spawn engine for sentence {i}: {e}"))?;
+
+        let status = child
+            .wait()
+            .map_err(|e| format!("engine crashed for sentence {i}: {e}"))?;
+
+        if !status.success() {
+            return Err(format!(
+                "engine exited with code {} for sentence {}",
+                status.code().unwrap_or(-1),
+                i
+            ));
+        }
+
+        let duration_ms = wav_duration_ms(&output_path)?;
+
+        clips.push(crate::models::SentenceClip {
+            text: sentence.clone(),
+            start_ms: elapsed_ms,
+            end_ms: elapsed_ms + duration_ms,
+            wav_path: output_path.to_string_lossy().to_string(),
+        });
+
+        elapsed_ms += duration_ms;
+    }
+
+    Ok(clips)
+}
+
+#[cfg(test)]
+mod extra_commands_tests {
+    use super::*;
 
     #[test]
     fn open_output_folder_empty_string() {

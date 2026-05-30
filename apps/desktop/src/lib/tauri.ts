@@ -15,9 +15,8 @@ import type {
   ProcessLogLine,
   SystemInfo,
   VoicePreset,
+  SentenceClip,
 } from "@voice-of-fish/shared";
-
-// Dangerous patterns that could indicate path traversal or command injection
 const DANGEROUS_PATTERNS = /[;&|`$(){}[\]<>]/;
 
 export function validatePath(path: string): boolean {
@@ -194,8 +193,8 @@ export interface StudioClient {
   listVoicePresets(): Promise<VoicePreset[]>;
   saveVoicePreset(preset: VoicePreset): Promise<VoicePreset>;
   deleteVoicePreset(id: string): Promise<boolean>;
+  generateSentences(text: string, language: string, modelId: string): Promise<SentenceClip[]>;
 }
-
 export const tauriClient: StudioClient = {
   getSystemInfo: () => invoke<SystemInfo>("get_system_info"),
   getAppConfig: () => invoke<AppConfig | null>("get_app_config"),
@@ -221,6 +220,8 @@ export const tauriClient: StudioClient = {
     invoke<VoicePreset>("save_voice_preset", { preset }),
   deleteVoicePreset: (id) =>
     invoke<boolean>("delete_voice_preset", { id }),
+  generateSentences: (text, language, modelId) =>
+    invoke<SentenceClip[]>("generate_sentences", { text, language, modelId }),
 };
 
 // Production client — all methods route to real Tauri IPC.

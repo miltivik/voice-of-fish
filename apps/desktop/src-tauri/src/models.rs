@@ -486,6 +486,64 @@ mod tests {
         let q6 = models.iter().find(|m| m.id == "s2-q6").unwrap();
         assert!(q6.recommendation.contains("Recommended"));
     }
+}
+
+/// A single sentence clip with timing metadata for editor export.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SentenceClip {
+    pub text: String,
+    pub start_ms: u64,
+    pub end_ms: u64,
+    pub wav_path: String,
+}
+/// Split text into sentences by ., !, ? followed by space or end.
+pub fn split_sentences(text: &str) -> Vec<String> {
+    let mut sentences = Vec::new();
+    let mut start = 0;
+    for (i, c) in text.char_indices() {
+        if c == '.' || c == '!' || c == '?' {
+            // Check if this is a sentence-ending punctuation
+            let next = text[i + c.len_utf8()..].chars().next();
+            if next.map_or(true, |n| n.is_whitespace()) {
+                sentences.push(text[start..i + c.len_utf8()].trim().to_string());
+                start = i + c.len_utf8();
+            }
+        }
+    }
+    let remainder: String = text[start..].trim().to_string();
+    if !remainder.is_empty() {
+        sentences.push(remainder);
+    }
+    sentences
+}
+
+#[cfg(test)]
+mod sentence_tests {
+    use super::*;
+
+    #[test]
+    fn split_simple_sentences() {
+        let result = split_sentences("Hello world. How are you? I am fine!");
+        assert_eq!(result, vec!["Hello world.", "How are you?", "I am fine!"]);
+    }
+
+    #[test]
+    fn split_single_sentence() {
+        let result = split_sentences("Just one sentence");
+        assert_eq!(result, vec!["Just one sentence"]);
+    }
+
+    #[test]
+    fn split_empty() {
+        let result: Vec<String> = split_sentences("");
+        assert!(result.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod extra_tests {
+    use super::*;
 
     #[test]
     fn generation_log_line_mock_lines() {
