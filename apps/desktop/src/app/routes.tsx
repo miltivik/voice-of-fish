@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 const DashboardPage = lazy(() =>
   import("@/features/dashboard/DashboardPage").then((m) => ({
@@ -46,66 +47,25 @@ function PageLoader() {
   );
 }
 
+function PageShell({ children }: { children: React.ReactNode }) {
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<PageLoader />}>{children}</Suspense>
+    </ErrorBoundary>
+  );
+}
+
 export function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route
-          index
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <DashboardPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="generate"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <GenerationPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="voices"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <VoiceCloningPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="models"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <ModelManagerPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="history"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <HistoryPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="settings"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <SettingsPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="diagnostics"
-          element={
-            <Suspense fallback={<PageLoader />}>
-              <DiagnosticsPage />
-            </Suspense>
-          }
-        />
+        <Route index element={<PageShell><DashboardPage /></PageShell>} />
+        <Route path="generate" element={<PageShell><GenerationPage /></PageShell>} />
+        <Route path="voices" element={<PageShell><VoiceCloningPage /></PageShell>} />
+        <Route path="models" element={<PageShell><ModelManagerPage /></PageShell>} />
+        <Route path="history" element={<PageShell><HistoryPage /></PageShell>} />
+        <Route path="settings" element={<PageShell><SettingsPage /></PageShell>} />
+        <Route path="diagnostics" element={<PageShell><DiagnosticsPage /></PageShell>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

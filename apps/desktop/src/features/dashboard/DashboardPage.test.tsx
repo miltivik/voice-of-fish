@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { AppProviders } from "@/app/providers";
 import { DashboardPage } from "./DashboardPage";
 
@@ -41,9 +41,9 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByRole("heading", { name: /^dashboard$/i })).toBeVisible();
 
-    const card = screen.getByText("Engine readiness").closest(".rounded-md")!;
+    const card = screen.getByText("Engine readiness").closest(".rounded-md") as HTMLElement;
     expect(
-      await screen.findByText(/linux/i, { container: card }),
+      await within(card).findByText(/linux/i),
     ).toBeVisible();
   });
 
@@ -52,9 +52,9 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByText("Ready")).toBeVisible();
 
-    const card = screen.getByText("Engine readiness").closest(".rounded-md")!;
+    const card = screen.getByText("Engine readiness").closest(".rounded-md") as HTMLElement;
     expect(
-      await screen.findByText(/1 model quant.*installed/s, { container: card }),
+      await within(card).findByText(/1 model quant.*installed/s),
     ).toBeVisible();
   });
 

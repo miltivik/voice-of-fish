@@ -1,48 +1,45 @@
-import { Component, type ReactNode } from "react";
-
-interface ErrorBoundaryProps {
-  children: ReactNode;
-}
+import { Component } from "react";
+import { Link } from "react-router-dom";
 
 interface ErrorBoundaryState {
-  hasError: boolean;
   error: Error | null;
 }
 
 export class ErrorBoundary extends Component<
-  ErrorBoundaryProps,
+  { children: React.ReactNode },
   ErrorBoundaryState
 > {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
+  state: ErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("[ErrorBoundary]", error);
   }
 
   render() {
-    if (this.state.hasError) {
+    if (this.state.error) {
       return (
-        <main className="grid min-h-screen place-items-center bg-studio text-studio-foreground">
+        <div className="flex min-h-[50vh] items-center justify-center px-6">
           <div className="max-w-md space-y-4 text-center">
-            <h1 className="text-2xl font-semibold">Something went wrong</h1>
+            <h2 className="text-lg font-semibold text-studio-foreground">
+              Something went wrong
+            </h2>
             <p className="text-sm text-muted">
-              {this.state.error?.message ?? "An unexpected error occurred."}
+              An unexpected error occurred on this page. You can try going back
+              to the dashboard and navigating again.
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.hash = "#/";
-              }}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-studio transition-colors hover:bg-accent/80"
+            <Link
+              to="/"
+              className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-studio transition-colors hover:bg-accent/80"
+              onClick={() => this.setState({ error: null })}
             >
-              Reload
-            </button>
+              Go to dashboard
+            </Link>
           </div>
-        </main>
+        </div>
       );
     }
 

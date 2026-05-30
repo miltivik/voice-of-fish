@@ -26,10 +26,8 @@ const MOCK_RECORDS = [
 ];
 
 const { mockInvoke } = vi.hoisted(() => ({
-  mockInvoke: vi.fn((cmd: string) => {
-    if (cmd === "list_generation_history") return [];
-    return null;
-  }),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  mockInvoke: vi.fn((cmd: string): unknown => []),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -37,6 +35,13 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 describe("HistoryPage", () => {
+  beforeEach(() => {
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "list_generation_history") return [];
+      return null;
+    });
+  });
+
   it("renders empty history state", async () => {
     render(<HistoryPage />, { wrapper: AppProviders });
 
@@ -47,9 +52,11 @@ describe("HistoryPage", () => {
 
   it("renders history records", async () => {
     mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === "list_generation_history") return structuredClone(MOCK_RECORDS);
+      if (cmd === "list_generation_history")
+        return structuredClone(MOCK_RECORDS);
       return null;
     });
+
     render(<HistoryPage />, { wrapper: AppProviders });
 
     expect(await screen.findByText(/Hello world/i)).toBeVisible();
