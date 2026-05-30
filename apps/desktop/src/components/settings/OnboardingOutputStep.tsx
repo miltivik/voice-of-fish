@@ -48,8 +48,7 @@ export function OnboardingOutputStep({
   const handlePathChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const path = e.target.value;
     onOutputsPathChange(path);
-    setError(null);
-    onValidationChange(false);
+    runValidation(path);
   };
 
   const handlePathBlur = () => {

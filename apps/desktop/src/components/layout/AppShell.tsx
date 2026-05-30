@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { studioClient } from "@/lib/tauri";
+import { checkBinaryExists, studioClient } from "@/lib/tauri";
 import { Outlet } from "react-router-dom";
 import { SetupPanel } from "@/components/settings/SetupPanel";
 import { useAppStore } from "@/stores/useAppStore";
@@ -21,9 +21,29 @@ export function AppShell() {
   });
 
   useEffect(() => {
-    if (persistedConfig) {
+    if (!persistedConfig) return;
+    const binaryPath = persistedConfig.binaryPath?.trim();
+    if (!binaryPath) {
       hydrateConfig(persistedConfig);
+      return;
     }
+    let cancelled = false;
+    checkBinaryExists(binaryPath)
+      .then((exists) => {
+        if (cancelled) return;
+        hydrateConfig(persistedConfig);
+        if (!exists) {
+          useAppStore.setState({ setupComplete: false });
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        hydrateConfig(persistedConfig);
+        useAppStore.setState({ setupComplete: false });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [persistedConfig, hydrateConfig]);
 
   if (!setupComplete) {

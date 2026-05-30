@@ -51,11 +51,16 @@ describe("OnboardingInstallGuide", () => {
   it("shows copy button in each command block", async () => {
     const user = userEvent.setup();
     render(<OnboardingInstallGuide />);
-
     await user.click(screen.getByText(/Necesitas instalar s2\.cpp/i));
-
     const copyButtons = screen.getAllByRole("button", { name: "Copiar" });
-    expect(copyButtons).toHaveLength(2);
+    expect(copyButtons).toHaveLength(3);
+  });
+
+  it("shows macOS command block", async () => {
+    const user = userEvent.setup();
+    render(<OnboardingInstallGuide />);
+    await user.click(screen.getByText(/Necesitas instalar s2\.cpp/i));
+    expect(screen.getByText("Terminal macOS")).toBeVisible();
   });
 
   it("copies Windows commands and shows copied feedback", async () => {
@@ -71,9 +76,7 @@ describe("OnboardingInstallGuide", () => {
       expect.stringContaining("git clone --recurse-submodules"),
     );
     expect(screen.getByRole("button", { name: "¡Copiado!" })).toBeVisible();
-    expect(
-      screen.queryByRole("button", { name: "Copiar" }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Copiar" })).toHaveLength(2);
   });
 
   it("opens full local guide and returns to setup help", async () => {

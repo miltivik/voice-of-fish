@@ -113,12 +113,12 @@ describe("AppShell", () => {
 
   it("keeps setup incomplete when persisted config has no binaryPath", async () => {
     const config = {
-      mode: "simple",
+      mode: "simple" as const,
       binaryPath: "",
       modelsPath: "C:\\voice-of-fish\\models",
       outputsPath: "C:\\voice-of-fish\\outputs",
       defaultModelId: "s2-q6",
-      defaultAudioFormat: "wav",
+      defaultAudioFormat: "wav" as const,
       cpuThreads: 8,
       gpuEnabled: true,
       advancedArgs: {},
@@ -140,65 +140,40 @@ describe("AppShell", () => {
     expect(screen.getByText(/Necesitas instalar s2\.cpp/i)).toBeVisible();
   });
 
-  it("keeps setup incomplete when persisted binary no longer exists", async () => {
+  it("shows app shell when persisted config has binaryPath", async () => {
     const config = {
-      mode: "simple",
-      binaryPath: "C:\\s2\\missing.exe",
+      mode: "simple" as const,
+      binaryPath: "C:\\s2\\s2.exe",
       modelsPath: "C:\\voice-of-fish\\models",
       outputsPath: "C:\\voice-of-fish\\outputs",
       defaultModelId: "s2-q6",
-      defaultAudioFormat: "wav",
+      defaultAudioFormat: "wav" as const,
       cpuThreads: 8,
       gpuEnabled: true,
       advancedArgs: {},
     };
     mockGetAppConfig.mockResolvedValue(config);
-    mockCheckBinaryExists.mockResolvedValue(false);
-
-    render(<AppShell />, { wrapper });
-
-    await waitFor(() => {
-      expect(mockCheckBinaryExists).toHaveBeenCalledWith("C:\\s2\\missing.exe");
-    });
-    expect(useAppStore.getState()).toMatchObject({
-      config,
-      setupComplete: false,
-    });
-    expect(
-      screen.getByRole("heading", { name: /connect s2\.cpp/i }),
-    ).toBeVisible();
-  });
-
-  it("skips setup when persisted binary exists", async () => {
-    mockGetAppConfig.mockResolvedValue({
-      mode: "simple",
-      binaryPath: "C:\\s2\\s2.exe",
-      modelsPath: "C:\\voice-of-fish\\models",
-      outputsPath: "C:\\voice-of-fish\\outputs",
-      defaultModelId: "s2-q6",
-      defaultAudioFormat: "wav",
-      cpuThreads: 8,
-      gpuEnabled: true,
-      advancedArgs: {},
-    });
     mockCheckBinaryExists.mockResolvedValue(true);
 
     render(<AppShell />, { wrapper });
 
     await waitFor(() => {
-      expect(mockCheckBinaryExists).toHaveBeenCalledWith("C:\\s2\\s2.exe");
       expect(useAppStore.getState().setupComplete).toBe(true);
+    });
+    expect(useAppStore.getState()).toMatchObject({
+      config,
+      setupComplete: true,
     });
   });
 
   it("does not show sidebar or navigation links during setup", async () => {
     mockGetAppConfig.mockResolvedValue({
-      mode: "simple",
+      mode: "simple" as const,
       binaryPath: "",
       modelsPath: "C:\\voice-of-fish\\models",
       outputsPath: "C:\\voice-of-fish\\outputs",
       defaultModelId: "s2-q6",
-      defaultAudioFormat: "wav",
+      defaultAudioFormat: "wav" as const,
       cpuThreads: 8,
       gpuEnabled: true,
       advancedArgs: {},
@@ -216,23 +191,23 @@ describe("AppShell", () => {
   it("shows sidebar with navigation links after successful setup save", async () => {
     const user = userEvent.setup();
     mockGetAppConfig.mockResolvedValue({
-      mode: "simple",
+      mode: "simple" as const,
       binaryPath: "",
       modelsPath: "C:\\voice-of-fish\\models",
       outputsPath: "C:\\voice-of-fish\\outputs",
       defaultModelId: "s2-q6",
-      defaultAudioFormat: "wav",
+      defaultAudioFormat: "wav" as const,
       cpuThreads: 8,
       gpuEnabled: true,
       advancedArgs: {},
     });
     mockSaveAppConfig.mockResolvedValue({
-      mode: "simple",
+      mode: "simple" as const,
       binaryPath: "C:\\s2\\s2.exe",
       modelsPath: "C:\\voice-of-fish\\models",
       outputsPath: "C:\\voice-of-fish\\outputs",
       defaultModelId: "s2-q6",
-      defaultAudioFormat: "wav",
+      defaultAudioFormat: "wav" as const,
       cpuThreads: 8,
       gpuEnabled: true,
       advancedArgs: {},
@@ -253,12 +228,12 @@ describe("AppShell", () => {
   it("stays on setup when save fails", async () => {
     const user = userEvent.setup();
     mockGetAppConfig.mockResolvedValue({
-      mode: "simple",
+      mode: "simple" as const,
       binaryPath: "",
       modelsPath: "C:\\voice-of-fish\\models",
       outputsPath: "C:\\voice-of-fish\\outputs",
       defaultModelId: "s2-q6",
-      defaultAudioFormat: "wav",
+      defaultAudioFormat: "wav" as const,
       cpuThreads: 8,
       gpuEnabled: true,
       advancedArgs: {},
@@ -283,23 +258,23 @@ describe("AppShell", () => {
   it("saves config via client and updates state", async () => {
     const user = userEvent.setup();
     mockGetAppConfig.mockResolvedValue({
-      mode: "simple",
+      mode: "simple" as const,
       binaryPath: "",
       modelsPath: "C:\\voice-of-fish\\models",
       outputsPath: "C:\\voice-of-fish\\outputs",
       defaultModelId: "s2-q6",
-      defaultAudioFormat: "wav",
+      defaultAudioFormat: "wav" as const,
       cpuThreads: 8,
       gpuEnabled: true,
       advancedArgs: {},
     });
     mockSaveAppConfig.mockResolvedValue({
-      mode: "simple",
+      mode: "simple" as const,
       binaryPath: "C:\\s2\\s2.exe",
       modelsPath: "C:\\voice-of-fish\\models",
       outputsPath: "C:\\voice-of-fish\\outputs",
       defaultModelId: "s2-q6",
-      defaultAudioFormat: "wav",
+      defaultAudioFormat: "wav" as const,
       cpuThreads: 8,
       gpuEnabled: true,
       advancedArgs: {},
@@ -314,5 +289,27 @@ describe("AppShell", () => {
     expect(mockSaveAppConfig).toHaveBeenCalled();
     const [firstArg] = mockSaveAppConfig.mock.calls[0];
     expect(firstArg).toMatchObject({ binaryPath: "C:\\s2\\s2.exe" });
+  });
+  it("returns to setup when persisted binary no longer exists on disk", async () => {
+    mockGetAppConfig.mockResolvedValue({
+      mode: "simple" as const,
+      binaryPath: "C:\\s2\\gone.exe",
+      modelsPath: "C:\\voice-of-fish\\models",
+      outputsPath: "C:\\voice-of-fish\\outputs",
+      defaultModelId: "s2-q6",
+      defaultAudioFormat: "wav" as const,
+      cpuThreads: 8,
+      gpuEnabled: true,
+      advancedArgs: {},
+    });
+    mockCheckBinaryExists.mockResolvedValue(false);
+    render(<AppShell />, { wrapper });
+    await waitFor(() => {
+      expect(mockCheckBinaryExists).toHaveBeenCalledWith("C:\\s2\\gone.exe");
+    });
+    expect(useAppStore.getState().setupComplete).toBe(false);
+    expect(
+      await screen.findByRole("heading", { name: /connect s2\.cpp/i }),
+    ).toBeVisible();
   });
 });

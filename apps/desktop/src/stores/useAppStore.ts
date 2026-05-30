@@ -18,6 +18,7 @@ export const useAppStore = create<AppState>((set) => ({
     await studioClient.saveAppConfig(config);
     set({ config, setupComplete: true });
   },
-  hydrateConfig: (config) => set({ config, setupComplete: true }),
+  hydrateConfig: (config) =>
+    set({ config, setupComplete: Boolean(config.binaryPath?.trim()) }),
   setFooterStatus: (footerStatus) => set({ footerStatus }),
 }));

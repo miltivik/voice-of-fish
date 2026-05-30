@@ -107,6 +107,7 @@ const guideMessages = {
     ],
     windowsPowerShell: "Windows PowerShell",
     linuxShell: "Linux shell",
+    macosTerminal: "Terminal macOS",
     copyButton: "Copiar",
     copiedLabel: "¡Copiado!",
     fullGuideButton: "Abrir guía completa",
@@ -123,6 +124,9 @@ const guideMessages = {
     linuxHeading: "Linux",
     linuxBody:
       "Instala Git, CMake y tu toolchain C++17 desde el gestor de paquetes de tu distribución. Abre una terminal y ejecuta:",
+    macosHeading: "macOS",
+    macosBody:
+      "Instala CMake y Git con Homebrew. Abre una terminal y ejecuta:",
     modelHeading: "Descargar modelo GGUF y tokenizer",
     modelBody:
       "Instala la CLI actual de Hugging Face y descarga Q6 junto con tokenizer.json. Puedes elegir Q8, Q5 o Q4 según memoria disponible.",
@@ -167,6 +171,7 @@ const guideMessages = {
     ],
     windowsPowerShell: "Windows PowerShell",
     linuxShell: "Linux shell",
+    macosTerminal: "macOS Terminal",
     copyButton: "Copy",
     copiedLabel: "Copied!",
     fullGuideButton: "Open full guide",
@@ -183,6 +188,9 @@ const guideMessages = {
     linuxHeading: "Linux",
     linuxBody:
       "Install Git, CMake, and your C++17 toolchain from your distribution package manager. Open a terminal and run:",
+    macosHeading: "macOS",
+    macosBody:
+      "Install CMake and Git via Homebrew. Open a terminal and run:",
     modelHeading: "Download GGUF model and tokenizer",
     modelBody:
       "Install the current Hugging Face CLI and download Q6 together with tokenizer.json. You can choose Q8, Q5, or Q4 based on available memory.",
