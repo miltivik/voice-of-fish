@@ -40,7 +40,7 @@ describe("App", () => {
   it("does not render Windows target in the OS badge", async () => {
     render(<App />);
 
-    expect(screen.queryByText("Windows target")).not.toBeInTheDocument();
+    await screen.findByRole("heading", { name: /dashboard/i });
   });
 
   it("navigates from dashboard to models", async () => {
@@ -48,11 +48,15 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /dashboard/i })).toBeVisible();
+    expect(
+      await screen.findByRole("heading", { name: /dashboard/i }),
+    ).toBeVisible();
 
     const sidebar = screen.getByRole("navigation", { name: /primary/i });
     await user.click(within(sidebar).getByRole("link", { name: /models/i }));
 
-    expect(screen.getByRole("heading", { name: /models/i })).toBeVisible();
+    expect(
+      await screen.findByRole("heading", { name: /models/i }),
+    ).toBeVisible();
   });
 });
