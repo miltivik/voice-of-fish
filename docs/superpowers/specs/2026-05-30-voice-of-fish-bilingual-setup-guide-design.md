@@ -175,4 +175,3 @@ Existing unrelated suite/build blockers must be reported separately if still pre
 - Commands use current `hf download`.
 - UI performs no install, build, download, or arbitrary shell execution.
 - Existing onboarding path remains functional.
-
