@@ -38,11 +38,19 @@ export function GenerationPage() {
     queryKey: ["models"],
     queryFn: studioClient.listLocalModels,
   });
-  const installedModels = (models.data ?? []).filter(m => m.state === 'installed');
+  const installedModels = (models.data ?? []).filter(
+    (m) => m.state === "installed",
+  );
 
   const history = useQuery({
     queryKey: ["history"],
     queryFn: () => studioClient.listGenerationHistory(),
+  });
+
+  const presets = useQuery({
+    queryKey: ["voice-presets"],
+    queryFn: studioClient.listVoicePresets,
+    staleTime: 30_000,
   });
 
   const {
@@ -76,7 +84,7 @@ export function GenerationPage() {
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[GenerationPage] mutation failed:', message);
+      console.error("[GenerationPage] mutation failed:", message);
       useAppStore.getState().setFooterStatus("error");
       useGenerationStore.getState().setStatus("failed");
       toast.error(`Generation failed: ${message}`);
@@ -91,7 +99,7 @@ export function GenerationPage() {
     return () => {
       useAppStore.getState().setFooterStatus("ready");
     };
- }, []);
+  }, []);
 
   const onSubmit = (values: FormValues) => {
     generation.mutate(values as GenerationRequest);
@@ -217,6 +225,11 @@ export function GenerationPage() {
                   className="flex h-9 w-full rounded-md border border-line bg-studio px-3 py-1 text-sm text-studio-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
                 >
                   <option value="">None</option>
+                  {(presets.data ?? []).map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

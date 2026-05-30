@@ -143,6 +143,19 @@ export async function pickGgufPath(): Promise<string | null> {
   return selected ?? null;
 }
 
+/** Open a native file picker for audio files. Returns the selected path or null. */
+export async function pickAudioPath(): Promise<string | null> {
+  const selected = await openDialog({
+    title: "Select audio file",
+    filters: [
+      { name: "Audio files", extensions: ["wav", "mp3", "flac"] },
+      { name: "All files", extensions: ["*"] },
+    ],
+    multiple: false,
+  });
+  return selected ?? null;
+}
+
 // --- Existence checks ---
 
 export const checkBinaryExists = (binaryPath: string) => {

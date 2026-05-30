@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { studioClient } from "@/lib/tauri";
+import { studioClient, pickAudioPath } from "@/lib/tauri";
 import type { VoicePreset } from "@voice-of-fish/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +32,7 @@ export function VoiceCloningPage() {
     queryFn: studioClient.listVoicePresets,
   });
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<VoicePresetFormData>({
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<VoicePresetFormData>({
     resolver: zodResolver(voicePresetFormSchema),
     defaultValues: {
       name: "",
@@ -225,12 +225,28 @@ export function VoiceCloningPage() {
               <label htmlFor="preset-reference-file" className="text-sm font-medium text-studio-foreground block">
                 Reference audio file
               </label>
-              <Input
-                id="preset-reference-file"
-                {...register("referenceFileName")}
-                placeholder="/path/to/recording.wav"
-                aria-invalid={!!errors.referenceFileName}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="preset-reference-file"
+                  {...register("referenceFileName")}
+                  placeholder="/path/to/recording.wav"
+                  aria-invalid={!!errors.referenceFileName}
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const path = await pickAudioPath();
+                    if (path) {
+                      const filename = path.split(/[/\\]/).pop() ?? path;
+                      setValue("referenceFileName", filename, { shouldValidate: true });
+                    }
+                  }}
+                  className="shrink-0 rounded-lg bg-line/50 px-3 py-2 text-xs font-medium text-studio-foreground transition-colors hover:bg-line"
+                >
+                  Browse
+                </button>
+              </div>
               {errors.referenceFileName ? (
                 <p role="alert" className="mt-1 text-xs text-danger">
                   {errors.referenceFileName.message}
