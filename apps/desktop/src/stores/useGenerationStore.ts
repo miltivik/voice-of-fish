@@ -1,4 +1,5 @@
 import type {
+  GenerationJob,
   GenerationRequest,
   GenerationStatus,
 } from "@voice-of-fish/shared";
@@ -14,16 +15,19 @@ const initialDraft: GenerationRequest = {
 interface GenerationState {
   draft: GenerationRequest;
   status: GenerationStatus;
+  completedJob: GenerationJob | null;
   setText: (text: string) => void;
   patchDraft: (patch: Partial<GenerationRequest>) => void;
   insertTag: (tag: string, start: number, end: number) => void;
   setStatus: (status: GenerationStatus) => void;
+  setCompletedJob: (job: GenerationJob | null) => void;
   resetDraft: () => void;
 }
 
 export const useGenerationStore = create<GenerationState>((set) => ({
   draft: { ...initialDraft },
   status: "idle",
+  completedJob: null,
   setText: (text) => set((state) => ({ draft: { ...state.draft, text } })),
   patchDraft: (patch) =>
     set((state) => ({ draft: { ...state.draft, ...patch } })),
@@ -35,5 +39,7 @@ export const useGenerationStore = create<GenerationState>((set) => ({
       },
     })),
   setStatus: (status) => set({ status }),
-  resetDraft: () => set({ draft: { ...initialDraft }, status: "idle" }),
+  setCompletedJob: (completedJob) => set({ completedJob }),
+  resetDraft: () =>
+    set({ draft: { ...initialDraft }, status: "idle", completedJob: null }),
 }));

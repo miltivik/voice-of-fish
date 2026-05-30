@@ -4,7 +4,7 @@ Local voice generation studio desktop app powered by s2.cpp. Compose script text
 
 ## Status
 
-**Partial-real slice** — Configuration persistence and system diagnostics are now real (Tauri commands with actual sysinfo, path validation, binary detection). Model downloads, generation, and voice cloning remain in mock mode. The UI is wired to swap in real engine commands once s2.cpp flags are validated.
+**Partial-real slice** — Configuration persistence, system diagnostics, and generation process management are now real (Tauri commands with actual sysinfo, path validation, binary detection, child process spawn/cancel/logs). Model downloads and voice cloning remain in mock mode. Generation uses documented placeholder flags; real audio output requires confirming the actual s2.cpp CLI flags.
 
 **Cross-platform desktop target** — the desktop app supports Windows and Linux UX paths. Linux/Hyprland users can select extensionless `s2.cpp` binaries and should read [`docs/hyprland-setup.md`](docs/hyprland-setup.md) for Wayland-specific launch notes.
 
@@ -64,7 +64,9 @@ voice-of-fish/
 
 ## Integration Notes
 
-- Map real `s2.cpp` flags only in the Rust `process.rs` adapter after supported flags have been validated against the s2.cpp binary.
+- **s2.cpp execution** — `apps/desktop/src-tauri/src/process.rs` spawns the configured binary as a child process with typed argument vectors built from `GenerationRequest` + `AppConfig`. Placeholder flags (`-m`, `-t`, `-l`, `-o`, `-n`, `--seed`, `--gpu`, `--voice-ref`, `--voice-text`) are documented in `process.rs` pending confirmation of the real s2.cpp CLI. Audio output will be silent/unusable until these flags are aligned with the actual binary.
+- **Process lifecycle** — `run_generation` spawns the binary, captures stdout/stderr incrementally, monitors exit status via `try_wait` loop, and supports cancellation (`cmd /c taskkill`-equivalent). Only one generation runs at a time in simple mode.
+- **Path redaction** — `GenerationCommandSpec::redacted_display()` replaces all path-like args with `<path>` for safe display in Diagnostics.
 - Model manifest entries include quant, filename, display size, tokenizer flag, and recommendation — match these against the real GGUF catalog.
 - The typed command boundary (`StudioClient` interface) mirrors registered Tauri commands exactly; no direct IPC bypass.
 

@@ -25,6 +25,7 @@ tauri-plugin-fs = "2"
 tauri-plugin-http = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-store = "2"
+chrono = { version = "0.4", features = ["serde"] }
 sysinfo = "0.33"
 dirs = "6"
 sha2 = "0.10"

@@ -1,8 +1,13 @@
 import { useState, useCallback, useRef } from "react";
 import { t } from "@/lib/i18n";
-import { pickBinaryPath, checkBinaryExists, openExternalLink } from "@/lib/tauri";
+import {
+  pickBinaryPath,
+  checkBinaryExists,
+  openExternalLink,
+} from "@/lib/tauri";
 import { validateEnginePath } from "./onboarding-validation";
 import { getPlatformDefaultPaths } from "@/lib/platform";
+import { OnboardingInstallGuide } from "./OnboardingInstallGuide";
 interface OnboardingEngineStepProps {
   binaryPath: string;
   onBinaryPathChange: (path: string) => void;
@@ -95,6 +100,8 @@ export function OnboardingEngineStep({
         {t("engineBadgeCommunity")}
       </span>
 
+      <OnboardingInstallGuide />
+
       {/* Binary path */}
       <div className="space-y-2">
         <div className="flex gap-2">
@@ -103,7 +110,9 @@ export function OnboardingEngineStep({
             value={binaryPath}
             onChange={handlePathChange}
             onBlur={handleBlur}
-            placeholder={t("engineBinaryPlaceholder", { path: getPlatformDefaultPaths().binaryPath })}
+            placeholder={t("engineBinaryPlaceholder", {
+              path: getPlatformDefaultPaths().binaryPath,
+            })}
             aria-label={t("engineHeading")}
             className="flex-1 rounded-lg border border-line bg-studio px-3 py-2 text-sm text-studio-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
           />
