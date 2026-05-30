@@ -26,6 +26,7 @@ type VoicePresetFormData = z.infer<typeof voicePresetFormSchema>;
 export function VoiceCloningPage() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<VoicePreset | null>(null);
+  const [audioPath, setAudioPath] = useState("");
 
   const presets = useQuery({
     queryKey: ["voice-presets"],
@@ -48,6 +49,7 @@ export function VoiceCloningPage() {
     onSuccess: (saved) => {
       queryClient.invalidateQueries({ queryKey: ["voice-presets"] });
       setEditing(saved);
+      setAudioPath("");
     },
   });
 
@@ -56,6 +58,7 @@ export function VoiceCloningPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["voice-presets"] });
       setEditing(null);
+      setAudioPath("");
       reset({ name: "", language: "en", referenceText: "", referenceFileName: "", notes: "" });
     },
   });
@@ -65,22 +68,25 @@ export function VoiceCloningPage() {
       ...data,
       id: editing?.id ?? `voice-${crypto.randomUUID()}`,
       durationSeconds: editing?.durationSeconds,
-      referenceAudioPath: editing?.referenceAudioPath,
+      referenceAudioPath: audioPath || editing?.referenceAudioPath,
     };
     saveMutation.mutate(preset);
   };
 
   const startAdd = () => {
     setEditing(null);
+    setAudioPath("");
     reset({ name: "", language: "en", referenceText: "", referenceFileName: "", notes: "" });
   };
 
   const startEdit = (preset: VoicePreset) => {
     setEditing(preset);
+    setAudioPath(preset.referenceAudioPath ?? "");
   };
 
   const cancelForm = () => {
     setEditing(null);
+    setAudioPath("");
     reset({ name: "", language: "en", referenceText: "", referenceFileName: "", notes: "" });
   };
 
@@ -220,7 +226,7 @@ export function VoiceCloningPage() {
               )}
             </div>
 
-            {/* Reference file name */}
+            {/* Reference audio file */}
             <div>
               <label htmlFor="preset-reference-file" className="text-sm font-medium text-studio-foreground block">
                 Reference audio file
@@ -239,6 +245,7 @@ export function VoiceCloningPage() {
                     const path = await pickAudioPath();
                     if (path) {
                       const filename = path.split(/[/\\]/).pop() ?? path;
+                      setAudioPath(path);
                       setValue("referenceFileName", filename, { shouldValidate: true });
                     }
                   }}

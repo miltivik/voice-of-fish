@@ -88,11 +88,27 @@ pub fn run_generation(
         return Err(format!("model {} is not installed", request.model_id));
     }
 
+
+    // Resolve voice preset → reference audio path + text if not already provided
+    let mut resolved_request = request.clone();
+    if resolved_request.voice_preset_id.is_some()
+        && resolved_request.reference_audio_path.is_none()
+    {
+        let presets = presets::list_presets(&cfg.outputs_path);
+        if let Some(preset) = presets
+            .iter()
+            .find(|p| Some(&p.id) == resolved_request.voice_preset_id.as_ref())
+        {
+            resolved_request.reference_audio_path = preset.reference_audio_path.clone();
+            if resolved_request.reference_text.is_none() {
+                resolved_request.reference_text = Some(preset.reference_text.clone());
+            }
+        }
+    }
     let job_id = format!("job-{}", chrono::Utc::now().timestamp_millis());
     let spec = crate::process::GenerationCommandSpec::from_request(
-        &request, &cfg, model, &job_id,
+        &resolved_request, &cfg, model, &job_id,
     );
-
     let mut manager = process_manager
         .lock()
         .map_err(|e| format!("process manager lock failed: {e}"))?;
@@ -101,8 +117,7 @@ pub fn run_generation(
         return Err("a generation is already in progress".to_string());
     }
 
-    let job = manager.spawn_generation(&spec, &request, &job_id)?;
-    // Build the history record while we hold the lock, then drop it.
+    let job = manager.spawn_generation(&spec, &resolved_request, &job_id)?;
     let record = history::record_from_job(&job);
     drop(manager);
 
