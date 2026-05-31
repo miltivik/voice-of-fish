@@ -516,7 +516,97 @@ mod tests {
         std::fs::remove_dir(&test_dir).ok();
     }
 }
-/// Read WAV file header and return duration in milliseconds.
+#[cfg(test)]
+mod export_tests {
+    use super::*;
+    use crate::models::SentenceClip;
+    use std::io::Read;
+
+    #[test]
+    fn format_srt_time_midnight() {
+        assert_eq!(format_srt_time(0), "00:00:00,000");
+    }
+
+    #[test]
+    fn format_srt_time_milliseconds() {
+        assert_eq!(format_srt_time(1500), "00:00:01,500");
+    }
+
+    #[test]
+    fn format_srt_time_seconds() {
+        assert_eq!(format_srt_time(65000), "00:01:05,000");
+    }
+
+    #[test]
+    fn format_srt_time_hour() {
+        assert_eq!(format_srt_time(3_725_000), "01:02:05,000");
+    }
+
+    #[test]
+    fn export_creates_srt_and_copies_wavs() {
+        let temp_dir = std::env::temp_dir().join("vof_export_test");
+        let clips_dir = std::env::temp_dir().join("vof_clips_test");
+        std::fs::create_dir_all(&clips_dir).ok();
+
+        // Create mock WAV files (valid RIFF headers)
+        for i in 0..2 {
+            let mut wav = Vec::new();
+            wav.extend(b"RIFF");
+            wav.extend(&44u32.to_le_bytes()); // file size
+            wav.extend(b"WAVE");
+            wav.extend(b"fmt ");
+            wav.extend(&16u32.to_le_bytes());
+            wav.extend(&1u16.to_le_bytes()); // PCM
+            wav.extend(&1u16.to_le_bytes()); // mono
+            wav.extend(&44100u32.to_le_bytes());
+            wav.extend(&176400u32.to_le_bytes());
+            wav.extend(&4u16.to_le_bytes());
+            wav.extend(&32u16.to_le_bytes());
+            wav.extend(b"data");
+            wav.extend(&0u32.to_le_bytes());
+            std::fs::write(clips_dir.join(format!("clip_{i}.wav")), &wav).ok();
+        }
+
+        let clips = vec![
+            SentenceClip {
+                text: "Hello.".to_string(),
+                start_ms: 0,
+                end_ms: 1500,
+                wav_path: clips_dir.join("clip_0.wav").to_string_lossy().to_string(),
+            },
+            SentenceClip {
+                text: "World!".to_string(),
+                start_ms: 1500,
+                end_ms: 3000,
+                wav_path: clips_dir.join("clip_1.wav").to_string_lossy().to_string(),
+            },
+        ];
+
+        let result = export_editor_bundle(clips, temp_dir.to_string_lossy().to_string());
+        assert!(result.is_ok(), "export failed: {:?}", result.err());
+
+        // Verify SRT content
+        let srt_path = temp_dir.join("subtitles.srt");
+        assert!(srt_path.exists());
+        let mut srt_content = String::new();
+        std::fs::File::open(&srt_path)
+            .unwrap()
+            .read_to_string(&mut srt_content)
+            .ok();
+        assert!(srt_content.contains("00:00:00,000 --> 00:00:01,500"));
+        assert!(srt_content.contains("00:00:01,500 --> 00:00:03,000"));
+        assert!(srt_content.contains("Hello."));
+        assert!(srt_content.contains("World!"));
+
+        // Verify WAV copies
+        assert!(temp_dir.join("clip_0.wav").exists());
+        assert!(temp_dir.join("clip_1.wav").exists());
+
+        // Cleanup
+        std::fs::remove_dir_all(&temp_dir).ok();
+        std::fs::remove_dir_all(&clips_dir).ok();
+    }
+}
 fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
     let mut file = std::fs::File::open(path)
         .map_err(|e| format!("failed to open WAV: {e}"))?;
