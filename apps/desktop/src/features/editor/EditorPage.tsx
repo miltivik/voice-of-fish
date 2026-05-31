@@ -15,12 +15,27 @@ function formatTime(ms: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(millis).padStart(2, "0")}`;
 }
 
-function formatSrt(clips: SentenceClip[]): string {
+/** Split text into max 2 lines, ~42 chars each, at word boundaries. */
+function splitSubtitleLines(text: string, maxLine = 42): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLine) return trimmed;
+
+  let splitAt = maxLine;
+  while (splitAt > 0 && trimmed[splitAt] !== " ") splitAt--;
+  if (splitAt === 0) splitAt = maxLine;
+
+  const first = trimmed.slice(0, splitAt).trim();
+  let second = trimmed.slice(splitAt).trim();
+  if (second.length > maxLine) second = second.slice(0, maxLine) + "…";
+  return `${first}\n${second}`;
+}
+
+ function formatSrt(clips: SentenceClip[]): string {
   return clips
     .map((clip, i) => {
       const start = formatTime(clip.startMs).replace(".", ",");
       const end = formatTime(clip.endMs).replace(".", ",");
-      return `${i + 1}\n${start} --> ${end}\n${clip.text}\n`;
+      return `${i + 1}\n${start} --> ${end}\n${splitSubtitleLines(clip.text)}\n`;
     })
     .join("\n");
 }
@@ -60,6 +75,13 @@ export function EditorPage() {
   });
 
   const totalDuration = clips.reduce((sum, c) => sum + (c.endMs - c.startMs), 0);
+
+  function updateClipText(index: number, text: string) {
+    setClips((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, text } : c)),
+    );
+  }
+
   const sentenceCount = script
     .split(/[.!?]/)
     .filter((s) => s.trim().length > 0).length;
@@ -73,7 +95,6 @@ export function EditorPage() {
           DaVinci Resolve.
         </p>
       </div>
-
       {/* Script input */}
       <Card>
         <CardHeader>
@@ -194,7 +215,12 @@ export function EditorPage() {
                 >
                   <span className="w-6 text-center text-xs tabular-nums text-muted">{i + 1}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-studio-foreground">{clip.text}</p>
+                    <input
+                      value={clip.text}
+                      onChange={(e) => updateClipText(i, e.target.value)}
+                      className="w-full truncate bg-transparent text-sm text-studio-foreground outline-none"
+                      aria-label={`Edit subtitle ${i + 1}`}
+                    />
                     <p className="mt-0.5 text-xs text-muted">
                       {formatTime(clip.startMs)} → {formatTime(clip.endMs)}
                       {" · "}
@@ -210,7 +236,7 @@ export function EditorPage() {
                     className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted transition-colors hover:bg-line/40 hover:text-studio-foreground"
                     title="Play clip"
                   >
-                    ▶
+                    {"▶"}
                   </button>
                   <div
                     className="h-2 rounded-full bg-accent/30"

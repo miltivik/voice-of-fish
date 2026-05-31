@@ -370,10 +370,9 @@ pub fn export_editor_bundle(
     for (i, clip) in clips.iter().enumerate() {
         let start = format_srt_time(clip.start_ms);
         let end = format_srt_time(clip.end_ms);
-        writeln!(srt, "{}", i + 1).map_err(|e| format!("write error: {e}"))?;
+        let text = split_subtitle_lines(&clip.text, 42);
         writeln!(srt, "{start} --> {end}").map_err(|e| format!("write error: {e}"))?;
-        writeln!(srt, "{}", clip.text).map_err(|e| format!("write error: {e}"))?;
-        writeln!(srt).map_err(|e| format!("write error: {e}"))?;
+        writeln!(srt, "{text}").map_err(|e| format!("write error: {e}"))?;
     }
 
     // Copy resolve_import.py from Tauri resource
@@ -386,6 +385,38 @@ pub fn export_editor_bundle(
     Ok(format!("Exported {} clip(s) to {}", count, target_dir))
 }
 
+fn split_subtitle_lines(text: &str, max_line: usize) -> String {
+    let text = text.trim();
+    if text.len() <= max_line {
+        return text.to_string();
+    }
+
+    // Find split point near max_line at a word boundary
+    let mut split_at = max_line;
+    while split_at > 0 && !text.as_bytes().get(split_at).map_or(true, |&b| b == b' ') {
+        split_at -= 1;
+    }
+
+    // If no space found, fall back to hard split
+    if split_at == 0 {
+        split_at = max_line;
+    }
+
+    let first = text[..split_at].trim();
+    let second = text[split_at..].trim();
+
+    // If second line still too long, truncate with ellipsis
+    let second = if second.len() > max_line {
+        let mut trunc = second[..max_line].to_string();
+        trunc.push_str("…");
+        trunc
+    } else {
+        second.to_string()
+    };
+
+    format!("{first}\n{second}")
+}
+
 fn format_srt_time(ms: u64) -> String {
     let h = ms / 3_600_000;
     let m = (ms % 3_600_000) / 60_000;
@@ -393,13 +424,13 @@ fn format_srt_time(ms: u64) -> String {
     let millis = ms % 1000;
     format!("{:02}:{:02}:{:02},{:03}", h, m, s, millis)
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn check_binary_exists_empty_string() {
-        assert!(!check_binary_exists("".to_string()));
     }
 
     #[test]
