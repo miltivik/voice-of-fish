@@ -4,40 +4,31 @@ import { AppProviders } from "@/app/providers";
 import { ModelManagerPage } from "./ModelManagerPage";
 import { S2_MODEL_MANIFEST } from "@voice-of-fish/shared/constants";
 
-// Mock Tauri IPC so tests run without a real Tauri backend.
-// Mock Tauri event system.
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn(() => Promise.resolve(() => {})),
-}));
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn((cmd: string, args?: Record<string, unknown>) => {
-    if (cmd === "list_local_models") {
-      return structuredClone(S2_MODEL_MANIFEST);
-    }
-    if (cmd === "download_model") {
-      const { modelId } = args ?? {};
-      return structuredClone(S2_MODEL_MANIFEST).map((m) =>
-        m.id === modelId ? { ...m, state: "installed" as const } : m,
-      );
-    }
-    if (cmd === "delete_model") {
-      const { modelId } = args ?? {};
-      return structuredClone(S2_MODEL_MANIFEST).map((m) =>
-        m.id === modelId ? { ...m, state: "not-installed" as const } : m,
-      );
-    }
-    return null;
-  }),
-}));
-
 function getQ5Card() {
   const heading = screen.getByRole("heading", { name: "Q5" });
   return heading.closest("article")!;
 }
 
 describe("ModelManagerPage", () => {
-  it("downloads an uninstalled quant through mock state", async () => {
+  it("downloads an uninstalled quant", async () => {
     const user = userEvent.setup();
+    // Dynamic mock: download_model updates the model list in-place
+    let models = structuredClone(S2_MODEL_MANIFEST);
+    const invokeMock = (globalThis as Record<string, unknown>)
+      .__tauriInvoke as (cmd: string) => unknown;
+    (invokeMock as { mockImplementation: (f: (cmd: string) => unknown) => void })
+      .mockImplementation((cmd: string) => {
+        if (cmd === "list_local_models") return structuredClone(models);
+        if (cmd === "download_model") {
+          // Mark Q5 as installed
+          models = models.map((m: { id: string; state: string }) =>
+            m.id === "s2-q5" ? { ...m, state: "installed" } : m,
+          );
+          return structuredClone(models);
+        }
+        return null;
+      });
+
     render(<ModelManagerPage />, { wrapper: AppProviders });
 
     expect(await screen.findByText("Q5")).toBeVisible();

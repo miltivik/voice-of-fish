@@ -2,10 +2,6 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { pickBinaryPath, validateBinaryPath } from "./tauri";
 
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn(),
-}));
-
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: vi.fn(async () => "/opt/s2.cpp/build/s2"),
 }));
@@ -13,7 +9,6 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 vi.mock("@tauri-apps/plugin-shell", () => ({
   open: vi.fn(),
 }));
-
 describe("validateBinaryPath", () => {
   it("accepts Linux extensionless s2 binaries", () => {
     expect(validateBinaryPath("/opt/s2.cpp/build/s2", "linux")).toBe(true);

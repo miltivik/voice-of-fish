@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { AppProviders } from "@/app/providers";
 import { HistoryPage } from "./HistoryPage";
+import { setupTauriMocks } from "@/test-utils/tauri-mocks";
 
 const MOCK_RECORDS = [
   {
@@ -25,38 +26,20 @@ const MOCK_RECORDS = [
   },
 ];
 
-const { mockInvoke } = vi.hoisted(() => ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  mockInvoke: vi.fn((cmd: string): unknown => []),
-}));
-
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: mockInvoke,
-}));
-
 describe("HistoryPage", () => {
   beforeEach(() => {
-    mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === "list_generation_history") return [];
-      return null;
-    });
+    setupTauriMocks({ list_generation_history: [] });
   });
 
   it("renders empty history state", async () => {
     render(<HistoryPage />, { wrapper: AppProviders });
-
     expect(
       await screen.findByText(/no generation history/i),
     ).toBeVisible();
   });
 
   it("renders history records", async () => {
-    mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === "list_generation_history")
-        return structuredClone(MOCK_RECORDS);
-      return null;
-    });
-
+    setupTauriMocks({ list_generation_history: structuredClone(MOCK_RECORDS) });
     render(<HistoryPage />, { wrapper: AppProviders });
 
     expect(await screen.findByText(/Hello world/i)).toBeVisible();

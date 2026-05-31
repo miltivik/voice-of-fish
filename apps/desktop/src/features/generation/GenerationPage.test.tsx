@@ -1,46 +1,21 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppProviders } from "@/app/providers";
+import { setupTauriMocks } from "@/test-utils/tauri-mocks";
 import { GenerationPage } from "./GenerationPage";
 import { S2_MODEL_MANIFEST } from "@voice-of-fish/shared/constants";
 
-// Mock Tauri IPC so tests run without a real Tauri backend.
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn((cmd: string, args?: Record<string, unknown>) => {
-    if (cmd === "list_local_models") {
-      return structuredClone(S2_MODEL_MANIFEST);
-    }
-    if (cmd === "run_generation") {
-      const request = args?.request as Record<string, unknown> | undefined;
-      return {
-        ...request,
-        id: "mock-job-1",
-        status: "completed",
-        createdAt: "2026-05-26T12:00:00.000Z",
-        completedAt: "2026-05-26T12:00:01.000Z",
-        outputPath: "/outputs/mock.wav",
-        durationSeconds: 6.4,
-      };
-    }
-    if (cmd === "list_generation_history") {
-      return [];
-    }
-    if (cmd === "get_system_info") {
-      return {
-        os: "Test OS",
-        cpu: "Test CPU",
-        ramLabel: "16 GB",
-        appVersion: "0.1.0",
-      };
-    }
-    if (cmd === "get_app_config") {
-      return null;
-    }
-    return null;
-  }),
-}));
-
 describe("GenerationPage", () => {
+  beforeEach(() => {
+    setupTauriMocks({
+      list_local_models: structuredClone(S2_MODEL_MANIFEST),
+      run_generation: { id: "mock-job-1", status: "completed", createdAt: "2026-05-26T12:00:00.000Z", completedAt: "2026-05-26T12:00:01.000Z", outputPath: "/outputs/mock.wav", durationSeconds: 6.4 },
+      list_generation_history: [],
+      get_system_info: { os: "Test OS", cpu: "Test CPU", ramLabel: "16 GB", appVersion: "0.1.0" },
+      get_app_config: null,
+    });
+  });
+
   it("inserts style tag and completes mock generation", async () => {
     const user = userEvent.setup();
     render(<GenerationPage />, { wrapper: AppProviders });

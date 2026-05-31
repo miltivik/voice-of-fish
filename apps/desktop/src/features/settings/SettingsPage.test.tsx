@@ -1,11 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { AppProviders } from "@/app/providers";
 import { SettingsPage } from "./SettingsPage";
+import { setupTauriMocks } from "@/test-utils/tauri-mocks";
 
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn((cmd: string) => {
-    if (cmd === "get_app_config") {
-      return {
+describe("SettingsPage", () => {
+  beforeEach(() => {
+    setupTauriMocks({
+      get_app_config: {
         mode: "simple" as const,
         binaryPath: "/custom/s2",
         modelsPath: "/tmp/models",
@@ -15,13 +16,10 @@ vi.mock("@tauri-apps/api/core", () => ({
         cpuThreads: 8,
         gpuEnabled: true,
         advancedArgs: {},
-      };
-    }
-    return null;
-  }),
-}));
+      },
+    });
+  });
 
-describe("SettingsPage", () => {
   it("renders settings heading and form fields", async () => {
     render(<SettingsPage />, { wrapper: AppProviders });
 

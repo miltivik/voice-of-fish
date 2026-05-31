@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { AppProviders } from "@/app/providers";
+import { setupTauriMocks } from "@/test-utils/tauri-mocks";
 import { DashboardPage } from "./DashboardPage";
 
 // Mutable state — vi.hoisted ensures initialization before vi.mock runs.
@@ -11,29 +12,17 @@ const { modelState } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn((cmd: string) => {
-    if (cmd === "get_system_info") {
-      return { os: "Linux", cpu: "AMD Ryzen 7", ramLabel: "16 GB", appVersion: "0.1.0" };
-    }
-    if (cmd === "list_local_models") {
-      return [...modelState.models];
-    }
-    if (cmd === "list_generation_history") {
-      return [];
-    }
-    if (cmd === "get_app_config") {
-      return null;
-    }
-    return null;
-  }),
-}));
-
 describe("DashboardPage", () => {
   beforeEach(() => {
     // Reset to default: 1 installed model.
     modelState.models.length = 0;
     modelState.models.push({ id: "s2-q6", state: "installed", quant: "Q6", filename: "test.gguf" });
+    setupTauriMocks({
+      get_system_info: { os: "Linux", cpu: "AMD Ryzen 7", ramLabel: "16 GB", appVersion: "0.1.0" },
+      list_local_models: [...modelState.models],
+      list_generation_history: [],
+      get_app_config: null,
+    });
   });
 
   it("renders dashboard heading and system info", async () => {

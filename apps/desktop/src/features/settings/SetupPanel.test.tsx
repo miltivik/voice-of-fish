@@ -2,17 +2,16 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SetupPanel } from "@/components/settings/SetupPanel";
 
-// Mock the Tauri invoke for checkBinaryExists
-vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn((cmd: string) => {
-    if (cmd === "check_binary_exists") return true;
-    if (cmd === "check_file_exists") return true;
-    if (cmd === "check_directory_exists") return true;
-    return null;
-  }),
-}));
-
+import { setupTauriMocks } from "@/test-utils/tauri-mocks";
 describe("SetupPanel", () => {
+  beforeEach(() => {
+    setupTauriMocks({
+      check_binary_exists: true,
+      check_file_exists: true,
+      check_directory_exists: true,
+    });
+  });
+
   it("completes wizard and saves config", async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
