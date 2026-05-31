@@ -371,16 +371,16 @@ pub fn export_editor_bundle(
         let start = format_srt_time(clip.start_ms);
         let end = format_srt_time(clip.end_ms);
         let text = split_subtitle_lines(&clip.text, 42);
+        writeln!(srt, "{}", i + 1).map_err(|e| format!("write error: {e}"))?;
         writeln!(srt, "{start} --> {end}").map_err(|e| format!("write error: {e}"))?;
         writeln!(srt, "{text}").map_err(|e| format!("write error: {e}"))?;
+        writeln!(srt).map_err(|e| format!("write error: {e}"))?;
     }
 
     // Generate Kdenlive MLT XML project
     let kdenlive_xml = generate_kdenlive_xml(&clips);
     std::fs::write(target.join("project.kdenlive"), &kdenlive_xml)
         .map_err(|e| format!("failed to write project.kdenlive: {e}"))?;
-
-    // Copy resolve_import.py from Tauri resource
     let script_src = std::path::Path::new("resolve_import.py");
     if script_src.is_file() {
         std::fs::copy(script_src, target.join("resolve_import.py"))
