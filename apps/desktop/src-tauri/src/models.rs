@@ -385,10 +385,9 @@ pub struct VoicePreset {
 #[cfg(test)]
 mod tests {
     use super::{
-        GenerationJob, GenerationLogLine, GenerationRequest, GenerationStatus, LocalModel,
-        ModelQuant, ModelState, SystemInfo,
+        split_sentences, GenerationJob, GenerationLogLine, GenerationRequest, GenerationStatus,
+        LocalModel, ModelQuant, ModelState, SystemInfo,
     };
-
     #[test]
     fn system_info_omits_absent_optional_fields() {
         let info = SystemInfo {
@@ -486,8 +485,32 @@ mod tests {
         let q6 = models.iter().find(|m| m.id == "s2-q6").unwrap();
         assert!(q6.recommendation.contains("Recommended"));
     }
-}
 
+    #[test]
+    fn split_simple_sentences() {
+        let result = split_sentences("Hello world. How are you? I am fine!");
+        assert_eq!(result, vec!["Hello world.", "How are you?", "I am fine!"]);
+    }
+
+    #[test]
+    fn split_single_sentence() {
+        let result = split_sentences("Just one sentence");
+        assert_eq!(result, vec!["Just one sentence"]);
+    }
+
+    #[test]
+    fn split_empty() {
+        let result: Vec<String> = split_sentences("");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn generation_log_line_mock_lines() {
+        let lines = GenerationLogLine::mock_lines();
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].id, "log-1");
+    }
+}
 /// A single sentence clip with timing metadata for editor export.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -516,39 +539,4 @@ pub fn split_sentences(text: &str) -> Vec<String> {
         sentences.push(remainder);
     }
     sentences
-}
-
-#[cfg(test)]
-mod sentence_tests {
-    use super::*;
-
-    #[test]
-    fn split_simple_sentences() {
-        let result = split_sentences("Hello world. How are you? I am fine!");
-        assert_eq!(result, vec!["Hello world.", "How are you?", "I am fine!"]);
-    }
-
-    #[test]
-    fn split_single_sentence() {
-        let result = split_sentences("Just one sentence");
-        assert_eq!(result, vec!["Just one sentence"]);
-    }
-
-    #[test]
-    fn split_empty() {
-        let result: Vec<String> = split_sentences("");
-        assert!(result.is_empty());
-    }
-}
-
-#[cfg(test)]
-mod extra_tests {
-    use super::*;
-
-    #[test]
-    fn generation_log_line_mock_lines() {
-        let lines = GenerationLogLine::mock_lines();
-        assert_eq!(lines.len(), 1);
-        assert_eq!(lines[0].id, "log-1");
-    }
 }

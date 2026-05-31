@@ -489,8 +489,33 @@ mod tests {
         std::fs::remove_dir(&test_dir).ok();
     }
 
-}
+    #[test]
+    fn check_directory_exists_empty_string() {
+        assert!(!check_directory_exists("".to_string()));
+    }
 
+    #[test]
+    fn open_output_folder_empty_string() {
+        assert!(!open_output_folder("".to_string()));
+    }
+
+    #[test]
+    fn open_output_folder_nonexistent_path() {
+        assert!(!open_output_folder("/nonexistent/folder/should/fail".to_string()));
+    }
+
+    #[test]
+    fn open_output_folder_temp_dir() {
+        let temp_dir = std::env::temp_dir();
+        let test_dir = temp_dir.join("vof_test_folder_check");
+        std::fs::create_dir_all(&test_dir).ok();
+
+        let path_str = test_dir.to_string_lossy().to_string();
+        assert!(open_output_folder(path_str.clone()));
+
+        std::fs::remove_dir(&test_dir).ok();
+    }
+}
 /// Read WAV file header and return duration in milliseconds.
 fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
     let mut file = std::fs::File::open(path)
@@ -589,31 +614,4 @@ pub fn generate_sentences(
     }
 
     Ok(clips)
-}
-
-#[cfg(test)]
-mod extra_commands_tests {
-    use super::*;
-
-    #[test]
-    fn open_output_folder_empty_string() {
-        assert!(!open_output_folder("".to_string()));
-    }
-
-    #[test]
-    fn open_output_folder_nonexistent_path() {
-        assert!(!open_output_folder("/nonexistent/folder/should/fail".to_string()));
-    }
-
-    #[test]
-    fn open_output_folder_temp_dir() {
-        let temp_dir = std::env::temp_dir();
-        let test_dir = temp_dir.join("vof_test_folder_check");
-        std::fs::create_dir_all(&test_dir).ok();
-
-        let path_str = test_dir.to_string_lossy().to_string();
-        assert!(open_output_folder(path_str.clone()));
-
-        std::fs::remove_dir(&test_dir).ok();
-    }
 }
