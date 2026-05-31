@@ -1,5 +1,6 @@
 import {
   Activity,
+  Clapperboard,
   Gauge,
   History,
   Mic2,
@@ -15,11 +16,11 @@ const routes = [
   { label: "Generate", to: "/generate", icon: Waves },
   { label: "Voices", to: "/voices", icon: Mic2 },
   { label: "Models", to: "/models", icon: SlidersHorizontal },
+  { label: "Editor", to: "/editor", icon: Clapperboard },
   { label: "History", to: "/history", icon: History },
   { label: "Settings", to: "/settings", icon: Settings },
   { label: "Diagnostics", to: "/diagnostics", icon: Activity },
 ];
-
 export function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-10 flex w-64 flex-col border-r border-line bg-panel">

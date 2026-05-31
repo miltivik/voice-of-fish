@@ -13,6 +13,11 @@ const DiagnosticsPage = lazy(() =>
     default: m.DiagnosticsPage,
   })),
 );
+const EditorPage = lazy(() =>
+  import("@/features/editor/EditorPage").then((m) => ({
+    default: m.EditorPage,
+  })),
+);
 const GenerationPage = lazy(() =>
   import("@/features/generation/GenerationPage").then((m) => ({
     default: m.GenerationPage,
@@ -61,6 +66,7 @@ export function AppRoutes() {
       <Route element={<AppShell />}>
         <Route index element={<PageShell><DashboardPage /></PageShell>} />
         <Route path="generate" element={<PageShell><GenerationPage /></PageShell>} />
+        <Route path="editor" element={<PageShell><EditorPage /></PageShell>} />
         <Route path="voices" element={<PageShell><VoiceCloningPage /></PageShell>} />
         <Route path="models" element={<PageShell><ModelManagerPage /></PageShell>} />
         <Route path="history" element={<PageShell><HistoryPage /></PageShell>} />
