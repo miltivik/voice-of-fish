@@ -83,8 +83,36 @@ const messages = {
     genericStatusOk: "OK",
     genericStatusError: "Error",
     genericRequired: "This field is required.",
-  },
-} as const;
+    genericLanguage: "Language",
+    genericNone: "None",
+
+    /* --- Editor --- */
+    editorHeading: "Editor",
+    editorSubheading:
+      "Paste a script, generate each sentence as a clip, and export for DaVinci Resolve.",
+    editorScriptLabel: "Script",
+    editorScriptPlaceholder:
+      "Welcome to the show. Today we explore artificial intelligence. But first, a word from our sponsor.",
+    editorModelLabel: "Model",
+    editorVoiceLabel: "Voice",
+    editorGenerating: "Generating {n} sentence…",
+    editorGenerating_plural: "Generating {n} sentences…",
+    editorGenerateButton: "Generate {n} sentence",
+    editorGenerateButton_plural: "Generate {n} sentences",
+    editorTimelineHeading: "Timeline · {n} clip(s) · Total {time}",
+    editorCopySrt: "Copy SRT",
+    editorSrtCopied: "SRT copied to clipboard",
+    editorExportResolve: "Export for Resolve",
+    editorSelectExportFolder: "Select export folder",
+    editorExportFailed: "Export failed: {error}",
+
+    /* --- Error boundary --- */
+    errorBoundaryTitle: "Something went wrong",
+    errorBoundaryBody:
+      "An unexpected error occurred on this page. Go back to the dashboard and try again.",
+    errorBoundaryAction: "Go to dashboard",
+   },
+ } as const;
 
 type MessageKey = keyof typeof messages.en;
 

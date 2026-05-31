@@ -1,17 +1,14 @@
 import { Component } from "react";
 import { Link } from "react-router-dom";
-
-interface ErrorBoundaryState {
-  error: Error | null;
-}
+import { t } from "@/lib/i18n";
 
 export class ErrorBoundary extends Component<
   { children: React.ReactNode },
-  ErrorBoundaryState
+  { error: Error | null }
 > {
-  state: ErrorBoundaryState = { error: null };
+  state = { error: null as Error | null };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error) {
     return { error };
   }
 
@@ -25,24 +22,20 @@ export class ErrorBoundary extends Component<
         <div className="flex min-h-[50vh] items-center justify-center px-6">
           <div className="max-w-md space-y-4 text-center">
             <h2 className="text-lg font-semibold text-studio-foreground">
-              Something went wrong
+              {t("errorBoundaryTitle")}
             </h2>
-            <p className="text-sm text-muted">
-              An unexpected error occurred on this page. You can try going back
-              to the dashboard and navigating again.
-            </p>
+            <p className="text-sm text-muted">{t("errorBoundaryBody")}</p>
             <Link
               to="/"
               className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-studio transition-colors hover:bg-accent/80"
               onClick={() => this.setState({ error: null })}
             >
-              Go to dashboard
+              {t("errorBoundaryAction")}
             </Link>
           </div>
         </div>
       );
     }
-
     return this.props.children;
   }
 }
