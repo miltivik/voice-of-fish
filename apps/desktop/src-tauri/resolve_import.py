@@ -2,11 +2,12 @@
 """
 Voice of Fish → DaVinci Resolve Import Script
 
-Usage:
+For Kdenlive: open the project.kdenlive file directly.
+
+Usage (Resolve):
   1. Export from Voice of Fish Editor (WAVs + SRT)
   2. Open DaVinci Resolve with a project
   3. Run: python3 resolve_import.py /path/to/export/folder
-
 The script creates a new timeline, imports all WAVs as audio clips
 in order, and loads the SRT as subtitles.
 

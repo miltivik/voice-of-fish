@@ -375,6 +375,11 @@ pub fn export_editor_bundle(
         writeln!(srt, "{text}").map_err(|e| format!("write error: {e}"))?;
     }
 
+    // Generate Kdenlive MLT XML project
+    let kdenlive_xml = generate_kdenlive_xml(&clips);
+    std::fs::write(target.join("project.kdenlive"), &kdenlive_xml)
+        .map_err(|e| format!("failed to write project.kdenlive: {e}"))?;
+
     // Copy resolve_import.py from Tauri resource
     let script_src = std::path::Path::new("resolve_import.py");
     if script_src.is_file() {
@@ -383,6 +388,46 @@ pub fn export_editor_bundle(
     }
 
     Ok(format!("Exported {} clip(s) to {}", count, target_dir))
+}
+
+fn generate_kdenlive_xml(clips: &[crate::models::SentenceClip]) -> String {
+    let mut xml = String::new();
+    xml.push_str(r#"<?xml version="1.0" encoding="utf-8"?>
+"#);
+    xml.push_str(r#"<mlt LC_NUMERIC="C" version="7.0.0">
+"#);
+    xml.push_str(r#"  <profile width="1920" height="1080" frame_rate_num="25" frame_rate_den="1" display_aspect_num="16" display_aspect_den="9" sample_aspect_num="1" sample_aspect_den="1" colorspace="709" progressive="1"/>
+"#);
+    xml.push_str(&format!(
+        r#"  <tractor id="tractor0" title="Voice of Fish">
+    <track producer="playlist0"/>
+  </tractor>
+  <playlist id="playlist0">
+"#
+    ));
+    for (i, clip) in clips.iter().enumerate() {
+        let in_frames = clip.start_ms * 25 / 1000;
+        let out_frames = clip.end_ms * 25 / 1000;
+        xml.push_str(&format!(
+            r#"    <entry producer="producer{i}" in="{in_frames}" out="{out_frames}"/>
+"#
+        ));
+    }
+    xml.push_str(r#"  </playlist>
+"#);
+    for (i, clip) in clips.iter().enumerate() {
+        let out_frames = (clip.end_ms - clip.start_ms) * 25 / 1000;
+        xml.push_str(&format!(
+            r#"  <producer id="producer{i}" in="0" out="{out_frames}">
+    <property name="resource">{}</property>
+    <property name="mlt_type">audio</property>
+  </producer>
+"#,
+            clip.wav_path
+        ));
+    }
+    xml.push_str("</mlt>\n");
+    xml
 }
 
 fn split_subtitle_lines(text: &str, max_line: usize) -> String {
@@ -628,6 +673,19 @@ mod export_tests {
         assert!(srt_content.contains("00:00:01,500 --> 00:00:03,000"));
         assert!(srt_content.contains("Hello."));
         assert!(srt_content.contains("World!"));
+
+
+        // Verify Kdenlive project
+        let kdenlive_path = temp_dir.join("project.kdenlive");
+        assert!(kdenlive_path.exists());
+        let mut xml_content = String::new();
+        std::fs::File::open(&kdenlive_path)
+            .unwrap()
+            .read_to_string(&mut xml_content)
+            .ok();
+        assert!(xml_content.contains(r#"<mlt LC_NUMERIC="C""#));
+        assert!(xml_content.contains(r#"producer="producer0""#));
+        assert!(xml_content.contains(r#"producer="producer1""#));
 
         // Verify WAV copies
         assert!(temp_dir.join("clip_0.wav").exists());
