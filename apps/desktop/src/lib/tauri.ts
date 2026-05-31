@@ -193,7 +193,7 @@ export interface StudioClient {
   listVoicePresets(): Promise<VoicePreset[]>;
   saveVoicePreset(preset: VoicePreset): Promise<VoicePreset>;
   deleteVoicePreset(id: string): Promise<boolean>;
-  generateSentences(text: string, language: string, modelId: string): Promise<SentenceClip[]>;
+  generateSentences(text: string, language: string, modelId: string, voicePresetId?: string): Promise<SentenceClip[]>;
   exportEditorBundle(clips: SentenceClip[], targetDir: string): Promise<string>;
 }
 export const tauriClient: StudioClient = {
@@ -221,8 +221,8 @@ export const tauriClient: StudioClient = {
     invoke<VoicePreset>("save_voice_preset", { preset }),
   deleteVoicePreset: (id) =>
     invoke<boolean>("delete_voice_preset", { id }),
-  generateSentences: (text, language, modelId) =>
-    invoke<SentenceClip[]>("generate_sentences", { text, language, modelId }),
+  generateSentences: (text, language, modelId, voicePresetId) =>
+    invoke<SentenceClip[]>("generate_sentences", { text, language, modelId, voicePresetId }),
   exportEditorBundle: (clips, targetDir) =>
     invoke<string>("export_editor_bundle", { clips, targetDir }),
 };

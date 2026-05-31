@@ -48,7 +48,7 @@ export function EditorPage() {
 
   const generateMutation = useMutation({
     mutationFn: () =>
-      studioClient.generateSentences(script, language, modelId),
+      studioClient.generateSentences(script, language, modelId, voicePresetId || undefined),
     onSuccess: (data) => {
       setClips(data);
       toast.success(`Generated ${data.length} clip(s)`);
@@ -201,6 +201,17 @@ export function EditorPage() {
                       {duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const audio = new Audio(clip.wavPath);
+                      audio.play().catch(() => {});
+                    }}
+                    className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted transition-colors hover:bg-line/40 hover:text-studio-foreground"
+                    title="Play clip"
+                  >
+                    ▶
+                  </button>
                   <div
                     className="h-2 rounded-full bg-accent/30"
                     style={{ width: `${widthPercent}%`, maxWidth: 120 }}
