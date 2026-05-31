@@ -3,9 +3,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { LANGUAGE_OPTIONS } from "@voice-of-fish/shared/constants";
 import type { SentenceClip } from "@voice-of-fish/shared";
 import { toast } from "sonner";
+import { studioClient, pickFolderPath } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { studioClient } from "@/lib/tauri";
 
 function formatTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -29,6 +29,7 @@ export function EditorPage() {
   const [script, setScript] = useState("");
   const [language, setLanguage] = useState("en");
   const [modelId, setModelId] = useState("s2-q6");
+  const [voicePresetId, setVoicePresetId] = useState("");
   const [clips, setClips] = useState<SentenceClip[]>([]);
 
   const models = useQuery({
@@ -38,6 +39,13 @@ export function EditorPage() {
   const installedModels = (models.data ?? []).filter(
     (m) => m.state === "installed",
   );
+
+  const presets = useQuery({
+    queryKey: ["voice-presets"],
+    queryFn: studioClient.listVoicePresets,
+    staleTime: 30_000,
+  });
+
   const generateMutation = useMutation({
     mutationFn: () =>
       studioClient.generateSentences(script, language, modelId),
@@ -82,12 +90,7 @@ export function EditorPage() {
 
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <label
-                htmlFor="editor-model"
-                className="text-xs font-medium text-muted"
-              >
-                Model
-              </label>
+              <label htmlFor="editor-model" className="text-xs font-medium text-muted">Model</label>
               <select
                 id="editor-model"
                 value={modelId}
@@ -95,20 +98,28 @@ export function EditorPage() {
                 className="h-8 rounded-md border border-line bg-studio px-2 text-xs text-studio-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               >
                 {installedModels.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.quant}
-                  </option>
+                  <option key={m.id} value={m.id}>{m.quant}</option>
                 ))}
               </select>
             </div>
 
             <div className="flex items-center gap-2">
-              <label
-                htmlFor="editor-language"
-                className="text-xs font-medium text-muted"
+              <label htmlFor="editor-voice" className="text-xs font-medium text-muted">Voice</label>
+              <select
+                id="editor-voice"
+                value={voicePresetId}
+                onChange={(e) => setVoicePresetId(e.target.value)}
+                className="h-8 rounded-md border border-line bg-studio px-2 text-xs text-studio-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               >
-                Language
-              </label>
+                <option value="">None</option>
+                {(presets.data ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label htmlFor="editor-language" className="text-xs font-medium text-muted">Language</label>
               <select
                 id="editor-language"
                 value={language}
@@ -116,18 +127,14 @@ export function EditorPage() {
                 className="h-8 rounded-md border border-line bg-studio px-2 text-xs text-studio-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
               >
                 {LANGUAGE_OPTIONS.map((lang) => (
-                  <option key={lang.value} value={lang.value}>
-                    {lang.label}
-                  </option>
+                  <option key={lang.value} value={lang.value}>{lang.label}</option>
                 ))}
               </select>
             </div>
 
             <Button
               onClick={() => generateMutation.mutate()}
-              disabled={
-                generateMutation.isPending || script.trim().length === 0
-              }
+              disabled={generateMutation.isPending || script.trim().length === 0}
             >
               {generateMutation.isPending
                 ? `Generating ${sentenceCount} sentence(s)…`
@@ -144,16 +151,34 @@ export function EditorPage() {
             <CardTitle>
               Timeline · {clips.length} clip(s) · Total {formatTime(totalDuration)}
             </CardTitle>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                navigator.clipboard.writeText(formatSrt(clips)).catch(() => {});
-                toast.success("SRT copied to clipboard");
-              }}
-            >
-              Copy SRT
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(formatSrt(clips)).catch(() => {});
+                  toast.success("SRT copied to clipboard");
+                }}
+              >
+                Copy SRT
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={async () => {
+                  const dir = await pickFolderPath("Select export folder");
+                  if (!dir) return;
+                  try {
+                    const msg = await studioClient.exportEditorBundle(clips, dir);
+                    toast.success(msg);
+                  } catch (e) {
+                    toast.error(`Export failed: ${e}`);
+                  }
+                }}
+              >
+                Export for Resolve
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-2">
             {clips.map((clip, i) => {
@@ -167,19 +192,13 @@ export function EditorPage() {
                   key={clip.wavPath}
                   className="flex items-center gap-3 rounded-md border border-line bg-studio px-3 py-2"
                 >
-                  <span className="w-6 text-center text-xs tabular-nums text-muted">
-                    {i + 1}
-                  </span>
+                  <span className="w-6 text-center text-xs tabular-nums text-muted">{i + 1}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-studio-foreground">
-                      {clip.text}
-                    </p>
+                    <p className="truncate text-sm text-studio-foreground">{clip.text}</p>
                     <p className="mt-0.5 text-xs text-muted">
                       {formatTime(clip.startMs)} → {formatTime(clip.endMs)}
                       {" · "}
-                      {duration < 1000
-                        ? `${duration}ms`
-                        : `${(duration / 1000).toFixed(1)}s`}
+                      {duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`}
                     </p>
                   </div>
                   <div

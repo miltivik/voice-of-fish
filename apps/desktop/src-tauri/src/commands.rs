@@ -338,6 +338,61 @@ pub fn delete_voice_preset(
     presets::delete_preset(&cfg.outputs_path, &id)
 }
 
+/// Export editor clips, SRT, and DaVinci import script to a folder.
+#[tauri::command(rename_all = "camelCase")]
+pub fn export_editor_bundle(
+    clips: Vec<crate::models::SentenceClip>,
+    target_dir: String,
+) -> Result<String, String> {
+    use std::io::Write;
+    let target = std::path::Path::new(&target_dir);
+    std::fs::create_dir_all(target)
+        .map_err(|e| format!("failed to create export folder: {e}"))?;
+
+    let mut count = 0u32;
+
+    // Copy WAV files
+    for clip in &clips {
+        let src = std::path::Path::new(&clip.wav_path);
+        if src.is_file() {
+            let dest_name = src.file_name().unwrap_or_default();
+            let dest = target.join(dest_name);
+            std::fs::copy(src, &dest)
+                .map_err(|e| format!("failed to copy {}: {e}", clip.wav_path))?;
+            count += 1;
+        }
+    }
+
+    // Generate SRT
+    let srt_path = target.join("subtitles.srt");
+    let mut srt = std::fs::File::create(&srt_path)
+        .map_err(|e| format!("failed to create SRT: {e}"))?;
+    for (i, clip) in clips.iter().enumerate() {
+        let start = format_srt_time(clip.start_ms);
+        let end = format_srt_time(clip.end_ms);
+        writeln!(srt, "{}", i + 1).map_err(|e| format!("write error: {e}"))?;
+        writeln!(srt, "{start} --> {end}").map_err(|e| format!("write error: {e}"))?;
+        writeln!(srt, "{}", clip.text).map_err(|e| format!("write error: {e}"))?;
+        writeln!(srt).map_err(|e| format!("write error: {e}"))?;
+    }
+
+    // Copy resolve_import.py from Tauri resource
+    let script_src = std::path::Path::new("resolve_import.py");
+    if script_src.is_file() {
+        std::fs::copy(script_src, target.join("resolve_import.py"))
+            .map_err(|e| format!("failed to copy script: {e}"))?;
+    }
+
+    Ok(format!("Exported {} clip(s) to {}", count, target_dir))
+}
+
+fn format_srt_time(ms: u64) -> String {
+    let h = ms / 3_600_000;
+    let m = (ms % 3_600_000) / 60_000;
+    let s = (ms % 60_000) / 1000;
+    let millis = ms % 1000;
+    format!("{:02}:{:02}:{:02},{:03}", h, m, s, millis)
+}
 #[cfg(test)]
 mod tests {
     use super::*;

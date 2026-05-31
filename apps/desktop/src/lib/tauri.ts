@@ -194,6 +194,7 @@ export interface StudioClient {
   saveVoicePreset(preset: VoicePreset): Promise<VoicePreset>;
   deleteVoicePreset(id: string): Promise<boolean>;
   generateSentences(text: string, language: string, modelId: string): Promise<SentenceClip[]>;
+  exportEditorBundle(clips: SentenceClip[], targetDir: string): Promise<string>;
 }
 export const tauriClient: StudioClient = {
   getSystemInfo: () => invoke<SystemInfo>("get_system_info"),
@@ -222,6 +223,8 @@ export const tauriClient: StudioClient = {
     invoke<boolean>("delete_voice_preset", { id }),
   generateSentences: (text, language, modelId) =>
     invoke<SentenceClip[]>("generate_sentences", { text, language, modelId }),
+  exportEditorBundle: (clips, targetDir) =>
+    invoke<string>("export_editor_bundle", { clips, targetDir }),
 };
 
 // Production client — all methods route to real Tauri IPC.
