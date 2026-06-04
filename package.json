@@ -8,7 +8,9 @@
     "lint": "pnpm --filter @voice-of-fish/desktop lint",
     "format": "pnpm --filter @voice-of-fish/desktop format",
     "format:check": "pnpm --filter @voice-of-fish/desktop format:check",
-    "test": "pnpm -r test",
+    "test": "pnpm test:rust && pnpm test:web",
+    "test:web": "pnpm -r test",
+    "test:rust": "cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml",
     "test:e2e": "pnpm --filter @voice-of-fish/desktop test:e2e"
   }
 }

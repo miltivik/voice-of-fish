@@ -31,11 +31,13 @@ pub fn load_app_config(app: &AppHandle) -> AppConfig {
         Ok(s) => s,
         Err(_) => return get_default_config(),
     };
-
-    match store.get(CONFIG_KEY) {
+    let mut config = match store.get(CONFIG_KEY) {
         Some(raw) => serde_json::from_value(raw.clone()).unwrap_or_else(|_| get_default_config()),
         None => get_default_config(),
-    }
+    };
+    // Expand tilde so all consumers get resolved absolute paths.
+    config.resolve_paths();
+    config
 }
 
 /// Persists the app config to disk. Validates paths before saving.

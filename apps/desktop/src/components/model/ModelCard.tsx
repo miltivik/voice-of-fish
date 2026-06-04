@@ -30,9 +30,9 @@ export function ModelCard({
   const handleDeleteCancel = () => setConfirmingDelete(false);
 
   return (
-    <article className="rounded-lg border border-line bg-panel p-4">
+    <article className="rounded-brutal border border-glass-border bg-glass p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-studio-foreground">
+        <h2 className="text-lg font-semibold text-concrete-50">
           {model.quant}
         </h2>
         {installed && (
@@ -65,10 +65,10 @@ export function ModelCard({
           </div>
         )}
       </div>
-      <p className="mt-1 text-sm text-studio-foreground">
+      <p className="mt-1 text-sm text-concrete-50">
         {model.filename} / {model.displaySize}
       </p>
-      <p className="mt-2 text-sm text-muted">{model.recommendation}</p>
+      <p className="mt-2 text-sm text-concrete-300">{model.recommendation}</p>
       <div className="mt-3 flex items-center gap-2">
         {model.tokenizerRequired && (
           <Badge variant="secondary">Tokenizer</Badge>
@@ -87,7 +87,7 @@ export function ModelCard({
       {progress !== undefined && (
         <div className="mt-3 space-y-1">
           <Progress value={progress * 100} />
-          <p className="text-xs text-muted">
+          <p className="text-xs text-concrete-300">
             {Math.round(progress * 100)}% downloaded
           </p>
         </div>

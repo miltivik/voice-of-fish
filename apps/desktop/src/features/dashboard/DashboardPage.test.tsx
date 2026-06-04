@@ -30,7 +30,7 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByRole("heading", { name: /^dashboard$/i })).toBeVisible();
 
-    const card = screen.getByText("Engine readiness").closest(".rounded-md") as HTMLElement;
+    const card = screen.getByText("Engine readiness").closest(".rounded-brutal") as HTMLElement;
     expect(
       await within(card).findByText(/linux/i),
     ).toBeVisible();
@@ -41,7 +41,7 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByText("Ready")).toBeVisible();
 
-    const card = screen.getByText("Engine readiness").closest(".rounded-md") as HTMLElement;
+    const card = screen.getByText("Engine readiness").closest(".rounded-brutal") as HTMLElement;
     expect(
       await within(card).findByText(/1 model quant.*installed/s),
     ).toBeVisible();

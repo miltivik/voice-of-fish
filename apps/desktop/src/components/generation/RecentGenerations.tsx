@@ -24,7 +24,7 @@ export function RecentGenerations({
 
   if (items.length === 0) {
     return (
-      <p className="text-sm text-muted">No recent generations recorded.</p>
+      <p className="text-sm text-concrete-300">No recent generations recorded.</p>
     );
   }
 
@@ -33,12 +33,12 @@ export function RecentGenerations({
       {items.map((item) => (
         <article
           key={item.id}
-          className="rounded-md border border-line bg-panel p-3"
+          className="rounded-brutal border border-glass-border bg-glass p-3"
         >
-          <p className="text-sm text-studio-foreground line-clamp-1">
+          <p className="text-sm text-concrete-50 line-clamp-1">
             {item.text}
           </p>
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-1 text-xs text-concrete-300">
             {item.modelId}
             {item.durationSeconds != null &&
               ` \u00b7 ${item.durationSeconds}s`}{" "}

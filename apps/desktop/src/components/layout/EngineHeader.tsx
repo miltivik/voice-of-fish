@@ -19,13 +19,13 @@ export function EngineHeader() {
   });
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-line bg-studio/95 px-6 backdrop-blur">
+    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b-2 border-glass-border-strong bg-glass-heavy/95 px-6 backdrop-blur-glass">
       <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-widest text-concrete-300">
           Engine status
         </p>
-        <div className="mt-1 flex items-center gap-2 text-sm text-studio-foreground">
-          <RadioTower aria-hidden="true" className="h-4 w-4 text-accent" />
+        <div className="mt-1 flex items-center gap-2 font-mono text-sm text-concrete-50">
+          <RadioTower aria-hidden="true" className="h-4 w-4 text-electric" />
           <span>Engine idle</span>
         </div>
       </div>

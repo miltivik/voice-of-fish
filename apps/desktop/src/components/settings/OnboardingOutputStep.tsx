@@ -71,24 +71,24 @@ export function OnboardingOutputStep({
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold">{t("outputHeading")}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
+        <p className="mt-2 text-sm leading-relaxed text-concrete-300">
           {t("outputBody")}
         </p>
       </div>
 
       {/* Mode selector */}
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-studio-foreground">
+        <legend className="text-sm font-medium text-concrete-50">
           Mode
         </legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {(["simple", "advanced"] as const).map((value) => (
             <label
               key={value}
-              className={`flex cursor-pointer gap-3 rounded-lg border px-3 py-3 transition-colors ${
+              className={`flex cursor-pointer gap-3 rounded-brutal border px-3 py-3 transition-colors ${
                 mode === value
-                  ? "border-accent bg-accent/10"
-                  : "border-line bg-panel hover:bg-line/40"
+                  ? "border-electric bg-electric/10"
+                  : "border-glass-border bg-glass hover:bg-glass-heavy"
               }`}
             >
               <input
@@ -97,15 +97,15 @@ export function OnboardingOutputStep({
                 value={value}
                 checked={mode === value}
                 onChange={() => onModeChange(value)}
-                className="mt-0.5 h-4 w-4 accent-accent"
+                className="mt-0.5 h-4 w-4 accent-electric"
               />
               <span>
-                <span className="block text-sm font-medium text-studio-foreground">
+                <span className="block text-sm font-medium text-concrete-50">
                   {value === "simple"
                     ? t("outputModeSimple")
                     : t("outputModeAdvanced")}
                 </span>
-                <span className="mt-1 block text-xs text-muted">
+                <span className="mt-1 block text-xs text-concrete-300">
                   {value === "simple"
                     ? t("outputModeSimpleDesc")
                     : t("outputModeAdvancedDesc")}
@@ -126,48 +126,48 @@ export function OnboardingOutputStep({
             onBlur={handlePathBlur}
             placeholder={t("outputFolderPlaceholder", { path: getPlatformDefaultPaths().outputsPath })}
             aria-label="Output folder path"
-            className="flex-1 rounded-lg border border-line bg-studio px-3 py-2 text-sm text-studio-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
+            className="flex-1 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2 text-sm text-concrete-50 placeholder:text-concrete-300/50 focus:border-electric focus:outline-none"
           />
           <button
             type="button"
             onClick={handleChooseFolder}
-            className="shrink-0 rounded-lg bg-line/50 px-4 py-2 text-sm font-medium text-studio-foreground transition-colors hover:bg-line"
+            className="shrink-0 rounded-brutal bg-concrete-600 px-4 py-2 text-sm font-medium text-concrete-50 transition-colors hover:bg-glass-heavy"
           >
             {t("outputButtonChoose")}
           </button>
         </div>
         {error && (
-          <p className="text-xs text-danger" role="alert">
+          <p className="text-xs text-ember" role="alert">
             {error}
           </p>
         )}
       </div>
 
       {/* Format note */}
-      <p className="text-xs text-muted">{t("outputFormatNote")}</p>
+      <p className="text-xs text-concrete-300">{t("outputFormatNote")}</p>
 
       {/* Summary */}
-      <div className="rounded-lg border border-line bg-panel px-4 py-3">
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+      <div className="rounded-brutal border border-glass-border bg-glass px-4 py-3">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-concrete-300">
           {t("outputSummaryLabel")}
         </h3>
         <dl className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <dt className="text-muted">{t("outputSummaryEngine")}</dt>
-            <dd className="max-w-[60%] truncate text-studio-foreground">
+            <dt className="text-concrete-300">{t("outputSummaryEngine")}</dt>
+            <dd className="max-w-[60%] truncate text-concrete-50">
               {binaryPath || "—"}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-muted">{t("outputSummaryModel")}</dt>
-            <dd className="max-w-[60%] truncate text-studio-foreground">
+            <dt className="text-concrete-300">{t("outputSummaryModel")}</dt>
+            <dd className="max-w-[60%] truncate text-concrete-50">
               {selectedQuant ?? "—"}
               {selectedModelFile ? ` (${selectedModelFile.split(/[/\\]/).pop()})` : ""}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-muted">{t("outputSummaryOutput")}</dt>
-            <dd className="max-w-[60%] truncate text-studio-foreground">
+            <dt className="text-concrete-300">{t("outputSummaryOutput")}</dt>
+            <dd className="max-w-[60%] truncate text-concrete-50">
               {outputsPath || "—"}
             </dd>
           </div>

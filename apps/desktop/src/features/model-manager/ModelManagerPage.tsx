@@ -98,7 +98,7 @@ export function ModelManagerPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">Models</h1>
         </div>
-        <p className="text-sm text-muted">Loading model catalog…</p>
+        <p className="text-sm text-concrete-300">Loading model catalog…</p>
       </section>
     );
   }
@@ -109,7 +109,7 @@ export function ModelManagerPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">Models</h1>
         </div>
-        <p className="text-sm text-danger">Failed to load model catalog.</p>
+        <p className="text-sm text-ember">Failed to load model catalog.</p>
       </section>
     );
   }
@@ -118,7 +118,7 @@ export function ModelManagerPage() {
     <section className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-normal">Models</h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-concrete-300">
           Manage installed GGUF models.
         </p>
       </div>

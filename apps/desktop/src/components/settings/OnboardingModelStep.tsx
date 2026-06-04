@@ -127,7 +127,7 @@ export function OnboardingModelStep({
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold">{t("modelHeading")}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
+        <p className="mt-2 text-sm leading-relaxed text-concrete-300">
           {t("modelBody")}
         </p>
       </div>
@@ -142,21 +142,21 @@ export function OnboardingModelStep({
               type="button"
               onClick={() => handleQuantClick(entry.quant)}
               className={cn(
-                "relative rounded-lg border px-4 py-3 text-left transition-colors",
+                "relative rounded-brutal border px-4 py-3 text-left transition-colors",
                 selectedQuant === entry.quant
-                  ? "border-accent bg-accent/10"
-                  : "border-line bg-studio hover:border-line/80",
+                  ? "border-electric bg-electric/10"
+                  : "border-glass-border bg-concrete-800 hover:border-glass-border/80",
               )}
             >
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">{entry.quant}</span>
                 {entry.quant === "Q6" && (
-                  <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                  <span className="rounded bg-electric/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-electric">
                     {t("modelBadgeRecommended")}
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-xs text-muted">
+              <p className="mt-1 text-xs text-concrete-300">
                 {entry.displaySize} — {QUANT_LABELS[entry.quant]}
               </p>
             </button>
@@ -173,12 +173,12 @@ export function OnboardingModelStep({
             onChange={(e) => onModelsPathChange(e.target.value)}
             placeholder={t("modelFolderPlaceholder", { path: getPlatformDefaultPaths().modelsPath })}
             aria-label="Models folder path"
-            className="flex-1 rounded-lg border border-line bg-studio px-3 py-2 text-sm text-studio-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
+            className="flex-1 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2 text-sm text-concrete-50 placeholder:text-concrete-300/50 focus:border-electric focus:outline-none"
           />
           <button
             type="button"
             onClick={handleChooseFolder}
-            className="shrink-0 rounded-lg bg-line/50 px-4 py-2 text-sm font-medium text-studio-foreground transition-colors hover:bg-line"
+            className="shrink-0 rounded-brutal bg-concrete-600 px-4 py-2 text-sm font-medium text-concrete-50 transition-colors hover:bg-glass-heavy"
           >
             {t("modelButtonOpenFolder")}
           </button>
@@ -194,12 +194,12 @@ export function OnboardingModelStep({
             readOnly
             placeholder={t("modelFilePlaceholder")}
             aria-label="Selected GGUF model file"
-            className="flex-1 rounded-lg border border-line bg-studio px-3 py-2 text-sm text-studio-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
+            className="flex-1 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2 text-sm text-concrete-50 placeholder:text-concrete-300/50 focus:border-electric focus:outline-none"
           />
           <button
             type="button"
             onClick={handleChooseGguf}
-            className="shrink-0 rounded-lg bg-line/50 px-4 py-2 text-sm font-medium text-studio-foreground transition-colors hover:bg-line"
+            className="shrink-0 rounded-brutal bg-concrete-600 px-4 py-2 text-sm font-medium text-concrete-50 transition-colors hover:bg-glass-heavy"
           >
             {t("modelButtonChooseFile")}
           </button>
@@ -207,23 +207,23 @@ export function OnboardingModelStep({
 
         {/* Validation status */}
         {errorMessage && (
-          <p className="text-xs text-danger" role="alert">
+          <p className="text-xs text-ember" role="alert">
             {errorMessage}
           </p>
         )}
         {validation.valid && (
-          <p className="text-xs text-accent" role="status">
+          <p className="text-xs text-electric" role="status">
             {t("modelStatusFound")}
           </p>
         )}
       </div>
 
       {/* Official format note */}
-      <div className="rounded-lg border border-amber-600/20 bg-amber-600/5 px-4 py-3">
+      <div className="rounded-brutal border border-amber-600/20 bg-amber-600/5 px-4 py-3">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
           {t("modelNoteOfficialLabel")}
         </p>
-        <p className="mt-1 text-xs leading-relaxed text-muted">
+        <p className="mt-1 text-xs leading-relaxed text-concrete-300">
           {t("modelNoteOfficialBody")}
         </p>
       </div>
@@ -233,14 +233,14 @@ export function OnboardingModelStep({
         <button
           type="button"
           onClick={() => openExternalLink("ggufSource")}
-          className="text-xs text-muted underline underline-offset-2 transition-colors hover:text-studio-foreground"
+          className="text-xs text-concrete-300 underline underline-offset-2 transition-colors hover:text-concrete-50"
         >
           {t("modelButtonGgufSource")}
         </button>
         <button
           type="button"
           onClick={() => openExternalLink("officialSourceLicense")}
-          className="text-xs text-muted underline underline-offset-2 transition-colors hover:text-studio-foreground"
+          className="text-xs text-concrete-300 underline underline-offset-2 transition-colors hover:text-concrete-50"
         >
           {t("modelButtonOfficialSource")}
         </button>

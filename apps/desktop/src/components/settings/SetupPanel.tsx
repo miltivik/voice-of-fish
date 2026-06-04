@@ -207,18 +207,18 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
         </div>
 
         {/* Navigation footer */}
-        <div className="flex items-center justify-between border-t border-line px-12 py-4">
+        <div className="flex items-center justify-between border-t border-glass-border px-12 py-4">
           <button
             type="button"
             onClick={handleBack}
             disabled={currentIndex === 0}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-muted transition-colors hover:text-studio-foreground disabled:opacity-30"
+            className="rounded-brutal px-4 py-2 text-sm font-medium text-concrete-300 transition-colors hover:text-concrete-50 disabled:opacity-30"
           >
             {t("onboardingBack")}
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted">
+            <span className="text-xs text-concrete-300">
               {t("onboardingStepCounter", {
                 current: currentIndex + 1,
                 total: STEP_ORDER.length,
@@ -234,7 +234,7 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
               title={
                 finishEnabled ? undefined : t("onboardingFinishDisabled")
               }
-              className="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-studio transition-colors hover:bg-accent/80 disabled:opacity-30"
+              className="rounded-brutal bg-electric px-5 py-2 text-sm font-semibold text-concrete transition-colors hover:bg-electric/80 disabled:opacity-30"
             >
               {t("onboardingFinish")}
             </button>
@@ -243,7 +243,7 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
               type="button"
               onClick={handleContinue}
               disabled={!canContinue()}
-              className="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-studio transition-colors hover:bg-accent/80 disabled:opacity-30"
+              className="rounded-brutal bg-electric px-5 py-2 text-sm font-semibold text-concrete transition-colors hover:bg-electric/80 disabled:opacity-30"
             >
               {t("onboardingContinue")}
             </button>

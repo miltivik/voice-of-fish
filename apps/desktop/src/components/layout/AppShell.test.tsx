@@ -23,10 +23,8 @@ vi.mock("@/lib/tauri", () => ({
     downloadModel: vi.fn(),
     deleteModel: vi.fn(),
     runGeneration: vi.fn(),
-    getGenerationStatus: vi.fn().mockResolvedValue(null),
     cancelGeneration: vi.fn(),
     readGenerationLogs: vi.fn().mockResolvedValue([]),
-    getLastCommand: vi.fn().mockResolvedValue("<binary> -m <path>"),
     openOutputFolder: vi.fn(),
   },
   checkBinaryExists: (...args: unknown[]) => mockCheckBinaryExists(...args),
@@ -34,8 +32,6 @@ vi.mock("@/lib/tauri", () => ({
   openFilePicker: (...args: unknown[]) => mockOpenFilePicker(...args),
   openFolderPicker: (...args: unknown[]) => mockOpenFolderPicker(...args),
   openExternalLink: (...args: unknown[]) => mockOpenExternalLink(...args),
-  tauriClient: {},
-  mockClient: {},
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {

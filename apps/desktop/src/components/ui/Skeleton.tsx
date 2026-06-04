@@ -8,7 +8,7 @@ export function Skeleton({ className }: SkeletonProps) {
   return (
     <div
       aria-hidden="true"
-      className={cn("animate-pulse rounded-lg bg-line/50", className)}
+      className={cn("animate-pulse rounded-brutal bg-glass-border", className)}
     />
   );
 }

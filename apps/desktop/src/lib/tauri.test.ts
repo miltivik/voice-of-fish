@@ -9,23 +9,39 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 vi.mock("@tauri-apps/plugin-shell", () => ({
   open: vi.fn(),
 }));
+
+let mockPlatform = "linux";
+vi.mock("./platform", () => ({
+  getRuntimePlatform: () => mockPlatform,
+}));
+
 describe("validateBinaryPath", () => {
   it("accepts Linux extensionless s2 binaries", () => {
-    expect(validateBinaryPath("/opt/s2.cpp/build/s2", "linux")).toBe(true);
-    expect(validateBinaryPath("/opt/s2.cpp/build/s2.cpp", "linux")).toBe(true);
+    mockPlatform = "linux";
+    expect(validateBinaryPath("/opt/s2.cpp/build/s2")).toBe(true);
+    expect(validateBinaryPath("/opt/s2.cpp/build/s2.cpp")).toBe(true);
   });
 
   it("accepts Linux AppImage binaries case-insensitively", () => {
-    expect(validateBinaryPath("/opt/VoiceOfFish.AppImage", "linux")).toBe(true);
+    mockPlatform = "linux";
+    expect(validateBinaryPath("/opt/VoiceOfFish.AppImage")).toBe(true);
   });
 
   it("rejects obvious non-binaries on Linux", () => {
-    expect(validateBinaryPath("/tmp/readme.txt", "linux")).toBe(false);
+    mockPlatform = "linux";
+    expect(validateBinaryPath("/tmp/readme.txt")).toBe(false);
   });
 
   it("keeps Windows executable validation strict", () => {
-    expect(validateBinaryPath("C:\\s2\\s2.exe", "windows")).toBe(true);
-    expect(validateBinaryPath("C:\\s2\\s2", "windows")).toBe(false);
+    mockPlatform = "windows";
+    expect(validateBinaryPath("C:\\s2\\s2.exe")).toBe(true);
+    expect(validateBinaryPath("C:\\s2\\s2")).toBe(false);
+  });
+
+  it("accepts extensionless on macOS", () => {
+    mockPlatform = "macos";
+    expect(validateBinaryPath("/usr/local/bin/s2")).toBe(true);
+    expect(validateBinaryPath("/usr/local/bin/s2.cpp")).toBe(true);
   });
 });
 
@@ -35,7 +51,8 @@ describe("pickBinaryPath", () => {
   });
 
   it("does not pass extension filters on Linux", async () => {
-    await pickBinaryPath("linux");
+    mockPlatform = "linux";
+    await pickBinaryPath();
 
     expect(openDialog).toHaveBeenCalledWith({
       title: "Select s2.cpp binary",
@@ -44,7 +61,8 @@ describe("pickBinaryPath", () => {
   });
 
   it("keeps executable filters on Windows", async () => {
-    await pickBinaryPath("windows");
+    mockPlatform = "windows";
+    await pickBinaryPath();
 
     expect(openDialog).toHaveBeenCalledWith(
       expect.objectContaining({

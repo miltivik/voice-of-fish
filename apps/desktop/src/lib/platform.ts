@@ -67,12 +67,3 @@ export function getPlatformDefaultPaths(
     outputsPath: "~/voice-of-fish/outputs",
   };
 }
-
-export function joinDisplayPath(
-  directory: string,
-  fileName: string,
-  platform: DesktopPlatform = getRuntimePlatform(),
-): string {
-  const separator = platform === "windows" ? "\\" : "/";
-  return `${directory.replace(/[\\/]+$/, "")}${separator}${fileName}`;
-}

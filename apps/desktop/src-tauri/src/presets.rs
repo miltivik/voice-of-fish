@@ -99,6 +99,7 @@ mod tests {
             reference_file_name: "ref.wav".to_string(),
             reference_audio_path: None,
             notes: None,
+            gender: None,
             duration_seconds: None,
         }
     }

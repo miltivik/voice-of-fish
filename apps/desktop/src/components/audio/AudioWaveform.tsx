@@ -23,7 +23,7 @@ export function AudioWaveform({
   return audioUrl ? (
     <div ref={host} />
   ) : (
-    <p className="text-sm text-muted">
+    <p className="text-sm text-concrete-300">
       WAV path ready after engine integration: {outputPath}
     </p>
   );

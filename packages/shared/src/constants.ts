@@ -44,10 +44,6 @@ export const LANGUAGE_OPTIONS = [
   { value: "ko", label: "Korean" },
   { value: "hi", label: "Hindi" },
 ] as const;
-// Supported languages from Rust backend (s2.cpp)
-export const SUPPORTED_LANGUAGES = [
-  "en", "es", "fr", "de", "it", "pt", "pl", "tr", "ru", "nl", "cs", "ar", "zh-cn", "ja", "hu", "ko", "hi",
-] as const;
 
 export const S2_MODEL_MANIFEST: ModelManifestEntry[] = [
   {
@@ -97,18 +93,5 @@ export const S2_MODEL_MANIFEST: ModelManifestEntry[] = [
     checksum: "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
     state: "not-installed",
     downloadUrl: "https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/s2-pro-q4_k_m.gguf",
-  },
-];
-
-export const MOCK_HISTORY: HistoryRecord[] = [
-  {
-    id: "history-1",
-    text: "[calm] Local generation stays on this workstation.",
-    modelId: "s2-q6",
-    voiceName: "Nora reference",
-    outputPath: "C:\\voice-of-fish\\outputs\\calm-demo.wav",
-    createdAt: "2026-05-22T12:00:00.000Z",
-    durationSeconds: 6.4,
-    status: "completed",
   },
 ];

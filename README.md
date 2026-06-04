@@ -64,7 +64,7 @@ voice-of-fish/
 
 ## Integration Notes
 
-- **s2.cpp execution** — `apps/desktop/src-tauri/src/process.rs` spawns the configured binary as a child process with typed argument vectors built from `GenerationRequest` + `AppConfig`. Placeholder flags (`-m`, `-t`, `-l`, `-o`, `-n`, `--seed`, `--gpu`, `--voice-ref`, `--voice-text`) are documented in `process.rs` pending confirmation of the real s2.cpp CLI. Audio output will be silent/unusable until these flags are aligned with the actual binary.
+- **s2.cpp execution** — `apps/desktop/src-tauri/src/process.rs` spawns the configured binary with real CLI flags: `--model <gguf>`, `--tokenizer <tokenizer.json>`, `--text <text>`, `--output <wav>`, `--threads <n>`, `--normalize`, `--trim-silence`, `-v -1` (CPU mode), `--prompt-audio <ref.wav>`, `--prompt-text <transcript>`. Flags that do not exist in the real s2 CLI (`--lang`, `--seed`, `--out`, `--no-gpu`, `--ref-audio`, `--ref-text`) have been removed. The `language` and `seed` fields remain in `GenerationRequest` for forward compatibility but are not forwarded to the binary.
 - **Process lifecycle** — `run_generation` spawns the binary, captures stdout/stderr incrementally, monitors exit status via `try_wait` loop, and supports cancellation (`cmd /c taskkill`-equivalent). Only one generation runs at a time in simple mode.
 - **Path redaction** — `GenerationCommandSpec::redacted_display()` replaces all path-like args with `<path>` for safe display in Diagnostics.
 - Model manifest entries include quant, filename, display size, tokenizer flag, and recommendation — match these against the real GGUF catalog.

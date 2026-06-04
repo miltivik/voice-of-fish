@@ -7,11 +7,11 @@ export function GenerationResult({ job }: { job: GenerationJob }) {
   return (
     <div className="space-y-3">
       <Badge variant="default">Generation completed</Badge>
-      <p className="text-sm text-studio-foreground">
+      <p className="text-sm text-concrete-50">
         Output: {job.outputPath ?? "Pending"}
       </p>
       {job.durationSeconds != null && (
-        <p className="text-xs text-muted">Duration: {job.durationSeconds}s</p>
+        <p className="text-xs text-concrete-300">Duration: {job.durationSeconds}s</p>
       )}
       <AudioWaveform audioUrl={job.audioUrl} outputPath={job.outputPath} />
       <Button disabled={!job.outputPath}>Export WAV</Button>

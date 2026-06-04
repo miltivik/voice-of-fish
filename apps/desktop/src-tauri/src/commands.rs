@@ -1,3 +1,4 @@
+use crate::built_in_voices;
 use crate::config;
 use crate::diagnostics;
 use crate::downloads;
@@ -170,6 +171,29 @@ pub fn cancel_generation(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub fn get_active_job(
+    process_manager: State<'_, Mutex<ProcessManager>>,
+    app: tauri::AppHandle,
+) -> Option<GenerationJob> {
+    let mut manager = match process_manager.lock() {
+        Ok(m) => m,
+        Err(_) => return None,
+    };
+    manager.check_completion();
+    let job = manager.active_job.clone();
+    drop(manager);
+    // If the job finished, persist the updated status to history.
+    if let Some(ref job) = job {
+        if matches!(job.status, GenerationStatus::Completed | GenerationStatus::Failed | GenerationStatus::Cancelled) {
+            let cfg = config::load_app_config(&app);
+            let record = history::record_from_job(job);
+            let _ = history::update_history(&cfg.outputs_path, &record);
+        }
+    }
+    job
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub fn read_generation_logs(
     job_id: Option<String>,
     process_manager: State<'_, Mutex<ProcessManager>>,
@@ -201,7 +225,60 @@ pub fn open_output_folder(path: String) -> bool {
     let Ok(canonical) = std::fs::canonicalize(&path) else {
         return false;
     };
-    canonical.is_dir()
+    if !canonical.is_dir() {
+        return false;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&canonical)
+            .spawn()
+            .ok();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&canonical)
+            .spawn()
+            .ok();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/c", "start", "", &canonical.to_string_lossy()])
+            .spawn()
+            .ok();
+    }
+    true
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn open_file_path(path: String) -> Result<(), String> {
+    if path.is_empty() {
+        return Err("path is empty".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("failed to open file: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| format!("failed to open file: {e}"))?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/c", "start", "", &path])
+            .spawn()
+            .map_err(|e| format!("failed to open file: {e}"))?;
+    }
+    Ok(())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -714,12 +791,35 @@ fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
     Ok((duration_secs * 1000.0) as u64)
 }
 
+#[tauri::command(rename_all = "camelCase")]
+pub async fn seed_built_in_voices(
+    outputs_path: String,
+    _app: tauri::AppHandle,
+) -> Result<Vec<serde_json::Value>, String> {
+    if outputs_path.is_empty() {
+        return Err("outputs path is required".into());
+    }
+    let results = built_in_voices::seed_built_in_voices(&outputs_path);
+    let values: Vec<serde_json::Value> = results
+        .into_iter()
+        .map(|r| {
+            serde_json::json!({
+                "voiceId": r.voice_id,
+                "name": r.name,
+                "success": r.success,
+                "error": r.error,
+            })
+        })
+        .collect();
+    Ok(values)
+}
+
 /// Generate audio for each sentence in the input text, returning clips with
 /// cumulative timestamps suitable for SRT/subtitle export.
 #[tauri::command(rename_all = "camelCase")]
 pub fn generate_sentences(
     text: String,
-    language: String,
+    _language: String,
     model_id: String,
     voice_preset_id: Option<String>,
     app: tauri::AppHandle,
@@ -753,45 +853,45 @@ pub fn generate_sentences(
     if sentences.is_empty() {
         return Err("no sentences found in input text".to_string());
     }
-
     let outputs_dir = std::path::Path::new(&cfg.outputs_path);
     let model_path = std::path::Path::new(&cfg.models_path).join(&model.filename);
     let mut clips = Vec::with_capacity(sentences.len());
     let mut elapsed_ms: u64 = 0;
-
     for (i, sentence) in sentences.iter().enumerate() {
         let output_path = outputs_dir.join(format!("clip_{i}.wav"));
-
+        let tokenizer_path = std::path::Path::new(&cfg.models_path).join("tokenizer.json");
         let mut cmd = std::process::Command::new(&cfg.binary_path);
         cmd.arg("--model")
             .arg(model_path.to_string_lossy().to_string())
+            .arg("--tokenizer")
+            .arg(tokenizer_path.to_string_lossy().to_string())
             .arg("--text")
             .arg(sentence.as_str())
-            .arg("--lang")
-            .arg(&language)
-            .arg("--out")
+            .arg("--output")
             .arg(output_path.to_string_lossy().to_string())
             .arg("--threads")
             .arg(cfg.cpu_threads.to_string())
+            .arg("--normalize")
+            .arg("--trim-silence")
             .arg("--log-level")
             .arg("error");
+        if !cfg.gpu_enabled {
+            cmd.arg("-v").arg("-1");
+        }
         if let Some(ref audio) = prompt_audio {
             cmd.arg("--prompt-audio").arg(audio);
         }
         if let Some(ref text) = prompt_text {
             cmd.arg("--prompt-text").arg(text);
         }
-
         let mut child = cmd
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
             .map_err(|e| format!("failed to spawn engine for sentence {i}: {e}"))?;
-
         let status = child
             .wait()
             .map_err(|e| format!("engine crashed for sentence {i}: {e}"))?;
-
         if !status.success() {
             return Err(format!(
                 "engine exited with code {} for sentence {}",
@@ -799,18 +899,14 @@ pub fn generate_sentences(
                 i
             ));
         }
-
         let duration_ms = wav_duration_ms(&output_path)?;
-
         clips.push(crate::models::SentenceClip {
             text: sentence.clone(),
             start_ms: elapsed_ms,
             end_ms: elapsed_ms + duration_ms,
             wav_path: output_path.to_string_lossy().to_string(),
         });
-
         elapsed_ms += duration_ms;
     }
-
     Ok(clips)
 }

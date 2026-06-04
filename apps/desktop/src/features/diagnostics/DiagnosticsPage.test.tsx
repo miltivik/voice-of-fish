@@ -1,7 +1,13 @@
+import { useState } from "react";
 import { render, screen } from "@testing-library/react";
-import { AppProviders } from "@/app/providers";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { setupTauriMocks } from "@/test-utils/tauri-mocks";
 import { DiagnosticsPage } from "./DiagnosticsPage";
+
+function TestProviders({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient());
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
 
 describe("DiagnosticsPage", () => {
   beforeEach(() => {
@@ -14,7 +20,7 @@ describe("DiagnosticsPage", () => {
   });
 
   it("renders diagnostics heading and system info", async () => {
-    render(<DiagnosticsPage />, { wrapper: AppProviders });
+    render(<DiagnosticsPage />, { wrapper: TestProviders });
 
     expect(screen.getByRole("heading", { name: "Diagnostics" })).toBeVisible();
 
@@ -27,7 +33,7 @@ describe("DiagnosticsPage", () => {
   });
 
   it("shows binary status", async () => {
-    render(<DiagnosticsPage />, { wrapper: AppProviders });
+    render(<DiagnosticsPage />, { wrapper: TestProviders });
 
     expect(await screen.findByText("Found")).toBeVisible();
   });

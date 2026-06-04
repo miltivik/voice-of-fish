@@ -26,7 +26,9 @@ fn main() {
             voice_of_fish_desktop::commands::delete_model,
             voice_of_fish_desktop::commands::run_generation,
             voice_of_fish_desktop::commands::cancel_generation,
+            voice_of_fish_desktop::commands::get_active_job,
             voice_of_fish_desktop::commands::read_generation_logs,
+            voice_of_fish_desktop::commands::open_file_path,
             voice_of_fish_desktop::commands::open_output_folder,
             voice_of_fish_desktop::commands::check_binary_exists,
             voice_of_fish_desktop::commands::check_file_exists,
@@ -38,6 +40,7 @@ fn main() {
             voice_of_fish_desktop::commands::delete_voice_preset,
             voice_of_fish_desktop::commands::generate_sentences,
             voice_of_fish_desktop::commands::export_editor_bundle,
+            voice_of_fish_desktop::commands::seed_built_in_voices,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

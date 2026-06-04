@@ -5,4 +5,5 @@ pub mod downloads;
 pub mod history;
 pub mod models;
 pub mod presets;
+pub mod built_in_voices;
 pub mod process;

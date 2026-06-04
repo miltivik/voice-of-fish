@@ -85,16 +85,21 @@ fn default_app_mode() -> AppMode {
 fn default_audio_format() -> AudioFormat {
     AudioFormat::Wav
 }
-
 impl AppConfig {
     /// Expands a leading `~` to the user's home directory.
-    fn expand_tilde(path: &str) -> String {
+    pub fn expand_tilde(path: &str) -> String {
         if path.starts_with('~') {
             if let Some(home) = dirs::home_dir() {
                 return home.to_string_lossy().to_string() + &path[1..];
             }
         }
         path.to_string()
+    }
+    /// Resolves tilde in all path fields. Call after deserializing user-provided config.
+    pub fn resolve_paths(&mut self) {
+        self.binary_path = Self::expand_tilde(&self.binary_path);
+        self.models_path = Self::expand_tilde(&self.models_path);
+        self.outputs_path = Self::expand_tilde(&self.outputs_path);
     }
 
     /// Validates paths are absolute after tilde expansion.
@@ -378,6 +383,8 @@ pub struct VoicePreset {
     pub reference_audio_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gender: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_seconds: Option<f64>,
 }

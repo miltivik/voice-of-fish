@@ -29,14 +29,14 @@ export const Progress = forwardRef<
     <ProgressPrimitive.Root
       ref={ref}
       className={cn(
-        "relative h-2 w-full overflow-hidden rounded bg-line",
+        "relative h-2.5 w-full overflow-hidden rounded-none border border-glass-border bg-concrete-700",
         className,
       )}
       value={clampedValue}
       {...props}
     >
       <ProgressPrimitive.Indicator
-        className="h-full w-full flex-1 bg-accent transition-transform"
+        className="h-full w-full flex-1 bg-electric transition-transform shadow-[0_0_8px_rgba(0,229,255,0.45)]"
         style={{ transform: `translateX(-${100 - indicatorValue}%)` }}
       />
     </ProgressPrimitive.Root>

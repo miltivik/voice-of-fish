@@ -48,14 +48,14 @@ export function AppShell() {
 
   if (!setupComplete) {
     return (
-      <div className="min-h-screen bg-studio text-studio-foreground">
+      <div className="min-h-screen bg-concrete text-concrete-50">
         <SetupPanel onSave={saveConfig} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen min-w-[1024px] bg-studio text-studio-foreground">
+    <div className="min-h-screen min-w-[1024px] bg-concrete text-concrete-50">
       <Sidebar />
       <div className="flex min-h-screen min-w-0 flex-col pl-64">
         <EngineHeader />

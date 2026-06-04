@@ -1,6 +1,5 @@
 export type AppMode = "simple" | "advanced";
 export type AudioFormat = "wav";
-export type AdvancedArgValue = string | number | boolean;
 export type ModelQuant = "Q8" | "Q6" | "Q5" | "Q4";
 export type ModelState =
   | "not-installed"
@@ -48,6 +47,7 @@ export interface VoicePreset {
   referenceFileName: string;
   referenceAudioPath?: string;
   notes?: string;
+  gender?: string;
   durationSeconds?: number;
 }
 
@@ -76,10 +76,10 @@ export interface HistoryRecord {
   id: string;
   text: string;
   modelId: string;
-  voiceName?: string;
+  voiceName: string;
   outputPath: string;
   createdAt: string;
-  durationSeconds?: number;
+  durationSeconds: number;
   status: Exclude<GenerationStatus, "idle">;
 }
 
@@ -105,4 +105,27 @@ export interface SentenceClip {
   startMs: number;
   endMs: number;
   wavPath: string;
+}
+
+export type VoiceGender = "female" | "male";
+
+export interface BuiltInVoice {
+  id: string;
+  name: string;
+  gender: VoiceGender;
+  language: string;
+  referenceText: string;
+  /** URL to download the reference audio from (Hugging Face direct link). */
+  referenceAudioUrl: string;
+  /** Expected filename for the downloaded reference audio. */
+  referenceFileName: string;
+  /** Approximate duration of the reference audio in seconds. */
+  durationSeconds: number;
+
+export interface SeedResult {
+  voiceId: string;
+  name: string;
+  success: boolean;
+  error?: string;
+}
 }

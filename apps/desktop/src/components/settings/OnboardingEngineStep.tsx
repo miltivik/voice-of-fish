@@ -90,7 +90,7 @@ export function OnboardingEngineStep({
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold">{t("engineHeading")}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
+        <p className="mt-2 text-sm leading-relaxed text-concrete-300">
           {t("engineBody")}
         </p>
       </div>
@@ -114,12 +114,12 @@ export function OnboardingEngineStep({
               path: getPlatformDefaultPaths().binaryPath,
             })}
             aria-label={t("engineHeading")}
-            className="flex-1 rounded-lg border border-line bg-studio px-3 py-2 text-sm text-studio-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
+            className="flex-1 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2 text-sm text-concrete-50 placeholder:text-concrete-300/50 focus:border-electric focus:outline-none"
           />
           <button
             type="button"
             onClick={handleChooseBinary}
-            className="shrink-0 rounded-lg bg-line/50 px-4 py-2 text-sm font-medium text-studio-foreground transition-colors hover:bg-line"
+            className="shrink-0 rounded-brutal bg-concrete-600 px-4 py-2 text-sm font-medium text-concrete-50 transition-colors hover:bg-glass-heavy"
           >
             {t("engineButtonChoose")}
           </button>
@@ -128,7 +128,7 @@ export function OnboardingEngineStep({
         {/* Status line */}
         {statusText && (
           <p
-            className={`text-xs ${status === "found" ? "text-accent" : "text-danger"}`}
+            className={`text-xs ${status === "found" ? "text-electric" : "text-ember"}`}
             role="status"
             aria-live="polite"
           >
@@ -137,7 +137,7 @@ export function OnboardingEngineStep({
         )}
 
         {error && (
-          <p className="text-xs text-danger" role="alert">
+          <p className="text-xs text-ember" role="alert">
             {error}
           </p>
         )}
@@ -147,7 +147,7 @@ export function OnboardingEngineStep({
       <button
         type="button"
         onClick={() => openExternalLink("engineSource")}
-        className="text-xs text-muted underline underline-offset-2 transition-colors hover:text-studio-foreground"
+        className="text-xs text-concrete-300 underline underline-offset-2 transition-colors hover:text-concrete-50"
       >
         {t("engineButtonSource")}
       </button>

@@ -1,16 +1,17 @@
 import { z } from "zod";
+import { TagAutocomplete } from "@/components/generation/TagAutocomplete";
 import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LANGUAGE_OPTIONS } from "@voice-of-fish/shared/constants";
 import { generationRequestSchema } from "@voice-of-fish/shared/schemas";
 import type { GenerationJob, GenerationRequest } from "@voice-of-fish/shared";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { GenerationResult } from "@/components/generation/GenerationResult";
 import { RecentGenerations } from "@/components/generation/RecentGenerations";
 import { StyleTagBar } from "@/components/generation/StyleTagBar";
+import { LanguageSelect } from "@/components/ui/LanguageSelect";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,7 @@ const STATUS_PROGRESS: Record<string, number> = {
 export function GenerationPage() {
   const [completedJob, setCompletedJob] = useState<GenerationJob | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
+  const queryClient = useQueryClient();
   const models = useQuery({
     queryKey: ["models"],
     queryFn: studioClient.listLocalModels,
@@ -78,9 +79,43 @@ export function GenerationPage() {
     },
     onSuccess: (job) => {
       setCompletedJob(job);
-      useGenerationStore.getState().setStatus("completed");
-      useAppStore.getState().setFooterStatus("ready");
-      toast.success("Generation completed");
+      useGenerationStore.getState().setStatus("generating");
+      // Poll until the backend process finishes.
+      const poll = setInterval(async () => {
+        try {
+          const active = await studioClient.getActiveJob();
+          if (!active) {
+            // Process finished and manager cleared the job.
+            clearInterval(poll);
+            useGenerationStore.getState().setStatus("completed");
+            useAppStore.getState().setFooterStatus("ready");
+            queryClient.invalidateQueries({ queryKey: ["history"] });
+            return;
+          }
+          if (active.status === "completed") {
+            clearInterval(poll);
+            setCompletedJob(active);
+            useGenerationStore.getState().setStatus("completed");
+            useAppStore.getState().setFooterStatus("ready");
+            queryClient.invalidateQueries({ queryKey: ["history"] });
+            toast.success("Generation completed");
+          } else if (active.status === "failed") {
+            clearInterval(poll);
+            setCompletedJob(active);
+            useGenerationStore.getState().setStatus("failed");
+            useAppStore.getState().setFooterStatus("error");
+            queryClient.invalidateQueries({ queryKey: ["history"] });
+            toast.error(`Generation failed: ${active.error ?? "unknown error"}`);
+          } else if (active.status === "cancelled") {
+            clearInterval(poll);
+            useGenerationStore.getState().setStatus("cancelled");
+            useAppStore.getState().setFooterStatus("ready");
+          }
+          // "generating" → keep polling
+        } catch {
+          // Ignore transient polling errors
+        }
+      }, 500);
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
@@ -94,13 +129,6 @@ export function GenerationPage() {
     },
   });
 
-  // Reset footerStatus on unmount to clear 'error' state
-  useEffect(() => {
-    return () => {
-      useAppStore.getState().setFooterStatus("ready");
-    };
-  }, []);
-
   const onSubmit = (values: FormValues) => {
     generation.mutate(values as GenerationRequest);
   };
@@ -109,7 +137,7 @@ export function GenerationPage() {
     <section className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-normal">Generate</h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-concrete-300">
           Compose script text, add style tags, and generate audio.
         </p>
       </div>
@@ -127,7 +155,7 @@ export function GenerationPage() {
             <div className="space-y-1">
               <label
                 htmlFor="script-text"
-                className="text-sm font-medium text-studio-foreground"
+                className="text-sm font-medium text-concrete-50"
               >
                 Script text
               </label>
@@ -140,12 +168,11 @@ export function GenerationPage() {
                 }}
               />
               {errors.text && (
-                <p role="alert" className="text-sm text-danger">
+                <p role="alert" className="text-sm text-ember">
                   {errors.text.message}
                 </p>
               )}
             </div>
-
             <StyleTagBar
               textareaRef={textareaRef}
               getValue={() => getValues("text")}
@@ -153,19 +180,25 @@ export function GenerationPage() {
                 setValue("text", text, { shouldValidate: true })
               }
             />
-
+            <TagAutocomplete
+              textareaRef={textareaRef}
+              getValue={() => getValues("text")}
+              onChange={(text) =>
+                setValue("text", text, { shouldValidate: true })
+              }
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1">
                 <label
                   htmlFor="model"
-                  className="text-sm font-medium text-studio-foreground"
+                  className="text-sm font-medium text-concrete-50"
                 >
                   Model
                 </label>
                 <select
                   id="model"
                   {...register("modelId")}
-                  className="flex h-9 w-full rounded-md border border-line bg-studio px-3 py-1 text-sm text-studio-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
+                  className="flex h-9 w-full rounded-brutal border border-glass-border bg-concrete-800 px-3 py-1 text-sm text-concrete-50 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric focus-visible:ring-offset-2 focus-visible:ring-offset-concrete"
                 >
                   {installedModels.map((model) => (
                     <option key={model.id} value={model.id}>
@@ -178,21 +211,11 @@ export function GenerationPage() {
               <div className="space-y-1">
                 <label
                   htmlFor="language"
-                  className="text-sm font-medium text-studio-foreground"
+                  className="text-sm font-medium text-concrete-50"
                 >
                   Language
                 </label>
-                <select
-                  id="language"
-                  {...register("language")}
-                  className="flex h-9 w-full rounded-md border border-line bg-studio px-3 py-1 text-sm text-studio-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
-                >
-                  {LANGUAGE_OPTIONS.map((lang) => (
-                    <option key={lang.value} value={lang.value}>
-                      {lang.label}
-                    </option>
-                  ))}
-                </select>
+                <LanguageSelect id="language" register={register("language")} />
               </div>
             </div>
 
@@ -200,7 +223,7 @@ export function GenerationPage() {
               <div className="space-y-1">
                 <label
                   htmlFor="seed"
-                  className="text-sm font-medium text-studio-foreground"
+                  className="text-sm font-medium text-concrete-50"
                 >
                   Seed (optional)
                 </label>
@@ -215,28 +238,62 @@ export function GenerationPage() {
               <div className="space-y-1">
                 <label
                   htmlFor="voice"
-                  className="text-sm font-medium text-studio-foreground"
+                  className="text-sm font-medium text-concrete-50"
                 >
                   Voice preset (optional)
                 </label>
                 <select
                   id="voice"
                   {...register("voicePresetId")}
-                  className="flex h-9 w-full rounded-md border border-line bg-studio px-3 py-1 text-sm text-studio-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
+                  className="flex h-9 w-full rounded-brutal border border-glass-border bg-concrete-800 px-3 py-1 text-sm text-concrete-50 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric focus-visible:ring-offset-2 focus-visible:ring-offset-concrete"
                 >
                   <option value="">None</option>
-                  {(presets.data ?? []).map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.name}
-                    </option>
-                  ))}
+                  {(() => {
+                    const all = presets.data ?? [];
+                    const builtIn = all.filter((p) =>
+                      p.id.startsWith("built-in-")
+                    );
+                    const custom = all.filter(
+                      (p) => !p.id.startsWith("built-in-")
+                    );
+                    const groups: { label: string; items: typeof all }[] = [];
+                    if (builtIn.length > 0) {
+                      const byLang = new Map<string, typeof all>();
+                      for (const p of builtIn) {
+                        const lang = p.language ?? "other";
+                        if (!byLang.has(lang)) byLang.set(lang, []);
+                        byLang.get(lang)!.push(p);
+                      }
+                      for (const [lang, items] of byLang) {
+                        groups.push({
+                          label: `Built-in — ${lang.toUpperCase()}`,
+                          items,
+                        });
+                      }
+                    }
+                    if (custom.length > 0) {
+                      groups.push({ label: "Custom", items: custom });
+                    }
+                    return groups.flatMap((group) => [
+                      <optgroup key={group.label} label={group.label}>
+                        {group.items.map((preset) => (
+                          <option key={preset.id} value={preset.id}>
+                            {preset.name}
+                            {preset.gender
+                              ? ` (${preset.gender})`
+                              : ""}
+                          </option>
+                        ))}
+                      </optgroup>,
+                    ]);
+                  })()}
                 </select>
               </div>
             </div>
 
             {status !== "idle" && (
               <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted">
+                <p className="text-xs font-medium uppercase tracking-wide text-concrete-300">
                   {status}
                 </p>
                 <Progress

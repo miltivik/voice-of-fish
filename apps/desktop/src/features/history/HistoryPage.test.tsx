@@ -41,8 +41,13 @@ describe("HistoryPage", () => {
   it("renders history records", async () => {
     setupTauriMocks({ list_generation_history: structuredClone(MOCK_RECORDS) });
     render(<HistoryPage />, { wrapper: AppProviders });
-
     expect(await screen.findByText(/Hello world/i)).toBeVisible();
     expect(screen.getByText(/Another generation/i)).toBeVisible();
+  });
+  it("renders open folder button for each record", async () => {
+    setupTauriMocks({ list_generation_history: structuredClone(MOCK_RECORDS) });
+    render(<HistoryPage />, { wrapper: AppProviders });
+    const folderButtons = await screen.findAllByText(/abrir carpeta/i);
+    expect(folderButtons).toHaveLength(2);
   });
 });

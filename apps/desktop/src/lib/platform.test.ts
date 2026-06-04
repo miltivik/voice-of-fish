@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getPlatformDefaultPaths,
-  getRuntimePlatformLabel,
-  joinDisplayPath,
-  type DesktopPlatform,
-} from "./platform";
+import { getPlatformDefaultPaths, getRuntimePlatformLabel, type DesktopPlatform } from "./platform";
 
 describe("platform helpers", () => {
   it.each([
@@ -12,12 +7,9 @@ describe("platform helpers", () => {
     ["linux", "Linux"],
     ["macos", "macOS"],
     ["unknown", "Unknown OS"],
-  ] satisfies [DesktopPlatform, string][]) (
-    "labels %s",
-    (platform, expected) => {
-      expect(getRuntimePlatformLabel(platform)).toBe(expected);
-    },
-  );
+  ] satisfies [DesktopPlatform, string][])("labels %s", (platform, expected) => {
+    expect(getRuntimePlatformLabel(platform)).toBe(expected);
+  });
 
   it("returns Windows default paths", () => {
     expect(getPlatformDefaultPaths("windows")).toEqual({
@@ -33,14 +25,5 @@ describe("platform helpers", () => {
       modelsPath: "~/voice-of-fish/models",
       outputsPath: "~/voice-of-fish/outputs",
     });
-  });
-
-  it("joins display paths using the selected platform separator", () => {
-    expect(joinDisplayPath("C:\\voice-of-fish\\outputs", "mock.wav", "windows")).toBe(
-      "C:\\voice-of-fish\\outputs\\mock.wav",
-    );
-    expect(joinDisplayPath("~/voice-of-fish/outputs", "mock.wav", "linux")).toBe(
-      "~/voice-of-fish/outputs/mock.wav",
-    );
   });
 });

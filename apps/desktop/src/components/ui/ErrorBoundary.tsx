@@ -21,13 +21,13 @@ export class ErrorBoundary extends Component<
       return (
         <div className="flex min-h-[50vh] items-center justify-center px-6">
           <div className="max-w-md space-y-4 text-center">
-            <h2 className="text-lg font-semibold text-studio-foreground">
+            <h2 className="text-lg font-semibold text-concrete-50">
               {t("errorBoundaryTitle")}
             </h2>
-            <p className="text-sm text-muted">{t("errorBoundaryBody")}</p>
+            <p className="text-sm text-concrete-300">{t("errorBoundaryBody")}</p>
             <Link
               to="/"
-              className="inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-studio transition-colors hover:bg-accent/80"
+              className="inline-block rounded-brutal bg-electric px-4 py-2 text-sm font-medium text-concrete transition-colors hover:bg-electric/80"
               onClick={() => this.setState({ error: null })}
             >
               {t("errorBoundaryAction")}

@@ -7,12 +7,14 @@ const mockListVoicePresets = vi.fn();
 const mockSaveVoicePreset = vi.fn();
 const mockDeleteVoicePreset = vi.fn();
 const mockPickAudioPath = vi.fn();
+const mockOpenOutputFile = vi.fn();
 
 vi.mock("@/lib/tauri", () => ({
   studioClient: {
     listVoicePresets: (...args: unknown[]) => mockListVoicePresets(...args),
     saveVoicePreset: (...args: unknown[]) => mockSaveVoicePreset(...args),
     deleteVoicePreset: (...args: unknown[]) => mockDeleteVoicePreset(...args),
+    openOutputFile: (...args: unknown[]) => mockOpenOutputFile(...args),
   },
   pickAudioPath: (...args: unknown[]) => mockPickAudioPath(...args),
 }));
@@ -22,6 +24,7 @@ describe("VoiceCloningPage", () => {
     vi.clearAllMocks();
     mockListVoicePresets.mockResolvedValue([]);
     mockPickAudioPath.mockResolvedValue(null);
+    mockOpenOutputFile.mockResolvedValue(undefined);
   });
 
   it("renders empty preset list", async () => {
@@ -30,7 +33,7 @@ describe("VoiceCloningPage", () => {
     expect(
       await screen.findByText("No voice presets saved yet."),
     ).toBeVisible();
-    expect(screen.getByRole("button", { name: "Add preset" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Add voice" })).toBeVisible();
   });
 
   it("renders saved presets", async () => {
@@ -57,18 +60,17 @@ describe("VoiceCloningPage", () => {
     const user = userEvent.setup();
     render(<VoiceCloningPage />, { wrapper: AppProviders });
 
-    await user.click(screen.getByRole("button", { name: "Add preset" }));
+    await user.click(screen.getByRole("button", { name: "Add voice" }));
 
     // Try submitting empty form
     await user.click(screen.getByRole("button", { name: "Save preset" }));
 
-    // Validation errors should appear
-    expect(screen.getByText("Name is required")).toBeVisible();
+    // Validation errors appear (onChange mode, so they show immediately)
+    expect(await screen.findByText("Name is required")).toBeVisible();
     expect(screen.getByText("Reference text is required")).toBeVisible();
-    expect(screen.getByText("Reference file name is required")).toBeVisible();
   });
 
-  it("saves a new preset and clears form", async () => {
+  it("saves a new preset and closes form", async () => {
     const user = userEvent.setup();
     mockSaveVoicePreset.mockResolvedValue({
       id: "new-1",
@@ -81,16 +83,14 @@ describe("VoiceCloningPage", () => {
 
     render(<VoiceCloningPage />, { wrapper: AppProviders });
 
-    // Open add form
-    await user.click(screen.getByRole("button", { name: "Add preset" }));
+    await user.click(screen.getByRole("button", { name: "Add voice" }));
 
-    // Fill form
     await user.type(screen.getByLabelText("Name"), "Test Voice");
     await user.type(screen.getByLabelText("Reference text"), "Testing");
-    await user.type(
-      screen.getByLabelText("Reference audio file"),
-      "test.wav",
-    );
+
+    // Pick audio file
+    mockPickAudioPath.mockResolvedValue("/audio/test.wav");
+    await user.click(screen.getByRole("button", { name: "Browse…" }));
 
     await user.click(screen.getByRole("button", { name: "Save preset" }));
 
@@ -101,10 +101,13 @@ describe("VoiceCloningPage", () => {
     const call = mockSaveVoicePreset.mock.calls[0][0];
     expect(call.name).toBe("Test Voice");
     expect(call.referenceText).toBe("Testing");
+    expect(call.referenceFileName).toBe("test.wav");
+    expect(call.referenceAudioPath).toBe("/audio/test.wav");
   });
 
-  it("deletes a preset", async () => {
+  it("deletes a preset after confirmation", async () => {
     const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     mockListVoicePresets.mockResolvedValue([
       {
         id: "to-delete",
@@ -121,10 +124,74 @@ describe("VoiceCloningPage", () => {
 
     await screen.findByText("Delete Me");
 
-    // Click delete button (trash icon)
-    const deleteBtn = screen.getByTitle("Delete preset");
-    await user.click(deleteBtn);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
 
+    expect(confirmSpy).toHaveBeenCalled();
     expect(mockDeleteVoicePreset).toHaveBeenCalledWith("to-delete");
+    confirmSpy.mockRestore();
+  });
+
+  it("does not delete when confirmation is cancelled", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    mockListVoicePresets.mockResolvedValue([
+      {
+        id: "keep-me",
+        name: "Keep Me",
+        language: "en",
+        referenceText: "test",
+        referenceFileName: "test.wav",
+        referenceAudioPath: "/audio/test.wav",
+      },
+    ]);
+
+    render(<VoiceCloningPage />, { wrapper: AppProviders });
+
+    await screen.findByText("Keep Me");
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(mockDeleteVoicePreset).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it("plays reference audio when Play is clicked", async () => {
+    const user = userEvent.setup();
+    mockListVoicePresets.mockResolvedValue([
+      {
+        id: "p1",
+        name: "Nora",
+        language: "en",
+        referenceText: "Hello",
+        referenceFileName: "nora.wav",
+        referenceAudioPath: "/audio/nora.wav",
+      },
+    ]);
+
+    render(<VoiceCloningPage />, { wrapper: AppProviders });
+
+    await screen.findByText("Nora");
+
+    await user.click(screen.getByRole("button", { name: "Play" }));
+
+    expect(mockOpenOutputFile).toHaveBeenCalledWith("/audio/nora.wav");
+  });
+
+  it("filters presets by search", async () => {
+    const user = userEvent.setup();
+    mockListVoicePresets.mockResolvedValue([
+      { id: "p1", name: "Alpha", language: "en", referenceText: "a", referenceFileName: "a.wav" },
+      { id: "p2", name: "Beta", language: "es", referenceText: "b", referenceFileName: "b.wav" },
+    ]);
+
+    render(<VoiceCloningPage />, { wrapper: AppProviders });
+
+    await screen.findByText("Alpha");
+    expect(screen.getByText("Beta")).toBeVisible();
+
+    await user.type(screen.getByPlaceholderText("Search presets…"), "alpha");
+    expect(screen.getByText("Alpha")).toBeVisible();
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
   });
 });

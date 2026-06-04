@@ -29,7 +29,7 @@ export function DashboardPage() {
     <section className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-normal">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-concrete-300">
           Studio overview for local voice generation.
         </p>
       </div>
@@ -49,20 +49,20 @@ export function DashboardPage() {
               </div>
             </>
           ) : diagnostics.isError || models.isError ? (
-            <p className="text-sm text-danger">Failed to load engine data.</p>
+            <p className="text-sm text-ember">Failed to load engine data.</p>
           ) : diagnostics.data && models.data ? (
             <>
-              <p className="text-sm text-muted">
+              <p className="text-sm text-concrete-300">
                 {diagnostics.data?.os ?? "?"} /{" "}
                 {diagnostics.data?.ramLabel ?? "?"}
               </p>
-              <p className="text-sm text-muted">
+              <p className="text-sm text-concrete-300">
                 {installed} model quant{installed === 1 ? "" : "s"} installed.
               </p>
               <Progress value={installed * 25} aria-label="Engine readiness" />
             </>
           ) : (
-            <p className="text-sm text-muted">Loading system status…</p>
+            <p className="text-sm text-concrete-300">Loading system status…</p>
           )}
         </CardContent>
       </Card>
@@ -74,15 +74,15 @@ export function DashboardPage() {
         <CardContent className="space-y-2">
           {lastRecord ? (
             <>
-              <p className="text-sm text-muted">{lastRecord.outputPath}</p>
-              <p className="text-xs text-muted">
+              <p className="text-sm text-concrete-300">{lastRecord.outputPath}</p>
+              <p className="text-xs text-concrete-300">
                 Model: {lastRecord.modelId}
                 {lastRecord.durationSeconds != null &&
                   ` · ${lastRecord.durationSeconds}s`}
               </p>
             </>
           ) : (
-            <p className="text-sm text-muted">
+            <p className="text-sm text-concrete-300">
               No generations recorded yet.
             </p>
           )}
@@ -92,25 +92,25 @@ export function DashboardPage() {
       <div className="flex flex-wrap gap-3">
         <Link
           to="/generate"
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-studio transition-colors hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-brutal bg-electric px-4 py-2 text-sm font-medium text-concrete transition-colors hover:bg-electric/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric focus-visible:ring-offset-2 focus-visible:ring-offset-concrete"
         >
           Generate
         </Link>
         <Link
           to="/models"
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-panel px-4 py-2 text-sm font-medium text-studio-foreground transition-colors hover:bg-line/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-brutal border border-glass-border bg-glass px-4 py-2 text-sm font-medium text-concrete-50 transition-colors hover:bg-glass-heavy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric focus-visible:ring-offset-2 focus-visible:ring-offset-concrete"
         >
           Models
         </Link>
         <Link
           to="/settings"
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-panel px-4 py-2 text-sm font-medium text-studio-foreground transition-colors hover:bg-line/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-brutal border border-glass-border bg-glass px-4 py-2 text-sm font-medium text-concrete-50 transition-colors hover:bg-glass-heavy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric focus-visible:ring-offset-2 focus-visible:ring-offset-concrete"
         >
           Settings
         </Link>
         <Link
           to="/diagnostics"
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-line bg-panel px-4 py-2 text-sm font-medium text-studio-foreground transition-colors hover:bg-line/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-brutal border border-glass-border bg-glass px-4 py-2 text-sm font-medium text-concrete-50 transition-colors hover:bg-glass-heavy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric focus-visible:ring-offset-2 focus-visible:ring-offset-concrete"
         >
           Diagnostics
         </Link>

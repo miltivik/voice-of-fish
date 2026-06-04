@@ -66,6 +66,36 @@ pub fn append_history(outputs_path: &str, record: &HistoryRecord) -> Result<(), 
     Ok(())
 }
 
+/// Updates an existing history record by id. If the record is not found,
+/// appends it as a new record. Used when a generation completes to persist
+/// the final status, duration, and output path.
+pub fn update_history(outputs_path: &str, record: &HistoryRecord) -> Result<(), String> {
+    let path = history_path(outputs_path);
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("failed to create history dir: {e}"))?;
+    }
+
+    let mut records = list_history(outputs_path, None);
+
+    if let Some(existing) = records.iter_mut().find(|r| r.id == record.id) {
+        existing.status = record.status.clone();
+        existing.duration_seconds = record.duration_seconds;
+        existing.output_path = record.output_path.clone();
+    } else {
+        records.push(record.clone());
+    }
+
+    let json = serde_json::to_string_pretty(&records)
+        .map_err(|e| format!("failed to serialize history: {e}"))?;
+
+    std::fs::write(&path, json)
+        .map_err(|e| format!("failed to write history file: {e}"))?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

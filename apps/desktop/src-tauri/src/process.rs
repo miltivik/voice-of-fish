@@ -34,33 +34,32 @@ impl GenerationCommandSpec {
         let models_path = Path::new(&config.models_path);
         let outputs_path = Path::new(&config.outputs_path);
         let model_path = models_path.join(&model.filename);
+        let tokenizer_path = models_path.join("tokenizer.json");
         let output_path = outputs_path.join(format!("{job_id}.wav"));
-
         let mut args: Vec<String> = vec![
             "--model".to_string(),
             model_path.to_string_lossy().to_string(),
+            "--tokenizer".to_string(),
+            tokenizer_path.to_string_lossy().to_string(),
             "--text".to_string(),
             request.text.clone(),
-            "--lang".to_string(),
-            request.language.clone(),
-            "--out".to_string(),
+            "--output".to_string(),
             output_path.to_string_lossy().to_string(),
             "--threads".to_string(),
             config.cpu_threads.to_string(),
+            "--normalize".to_string(),
+            "--trim-silence".to_string(),
         ];
-        if let Some(seed) = request.seed {
-            args.push("--seed".to_string());
-            args.push(seed.to_string());
-        }
         if !config.gpu_enabled {
-            args.push("--no-gpu".to_string());
+            args.push("-v".to_string());
+            args.push("-1".to_string());
         }
         if let Some(ref ap) = request.reference_audio_path {
-            args.push("--ref-audio".to_string());
+            args.push("--prompt-audio".to_string());
             args.push(ap.clone());
         }
         if let Some(ref rt) = request.reference_text {
-            args.push("--ref-text".to_string());
+            args.push("--prompt-text".to_string());
             args.push(rt.clone());
         }
         Self { binary_path: PathBuf::from(&config.binary_path), args, cwd: None, output_path }
@@ -74,7 +73,7 @@ impl GenerationCommandSpec {
             let arg = &self.args[i];
             if is_path_like(arg) {
                 parts.push("<path>".to_string());
-            } else if i > 0 && matches!(self.args[i - 1].as_str(), "--text" | "--ref-text") {
+            } else if i > 0 && matches!(self.args[i - 1].as_str(), "--text" | "--prompt-text") {
                 parts.push("<redacted>".to_string());
             } else {
                 parts.push(arg.clone());
@@ -349,7 +348,7 @@ mod tests {
     }
 
     #[test]
-    fn redacted_no_leak() {
+    fn redacted_no_leak_text() {
         let s = GenerationCommandSpec {
             binary_path: "/b".into(),
             args: vec!["--text".into(), "sec".into()],
@@ -358,14 +357,73 @@ mod tests {
         };
         assert!(!s.redacted_display().contains("sec"));
     }
-
     #[test]
-    fn spec_maps_args() {
+    fn redacted_no_leak_prompt_text() {
+        let s = GenerationCommandSpec {
+            binary_path: "/b".into(),
+            args: vec!["--prompt-text".into(), "sec".into()],
+            cwd: None,
+            output_path: "/o".into(),
+        };
+        assert!(!s.redacted_display().contains("sec"));
+    }
+    #[test]
+    fn spec_maps_core_args() {
+        let r = GenerationRequest {
+            text: "hello world".into(),
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+        let c = AppConfig {
+            mode: AppMode::Simple,
+            binary_path: "/b".into(),
+            models_path: "/m".into(),
+            outputs_path: "/o".into(),
+            default_model_id: "s2".into(),
+            default_audio_format: AudioFormat::Wav,
+            cpu_threads: 4,
+            gpu_enabled: true,
+            advanced_args: Default::default(),
+        };
+        let m = LocalModel {
+            id: "s2".into(),
+            quant: ModelQuant::Q6,
+            filename: "model.gguf".into(),
+            display_size: "1".into(),
+            approx_bytes: 1,
+            recommendation: "r".into(),
+            tokenizer_required: true,
+            checksum: None,
+            download_url: None,
+            state: ModelState::Installed,
+        };
+        let s = GenerationCommandSpec::from_request(&r, &c, &m, "j1");
+        // Core required args
+        assert!(s.args.contains(&"--model".to_string()));
+        assert!(s.args.contains(&"--tokenizer".to_string()));
+        assert!(s.args.contains(&"--text".to_string()));
+        assert!(s.args.contains(&"hello world".to_string()));
+        assert!(s.args.contains(&"--output".to_string()));
+        assert!(s.args.contains(&"--threads".to_string()));
+        assert!(s.args.contains(&"4".to_string()));
+        assert!(s.args.contains(&"--normalize".to_string()));
+        assert!(s.args.contains(&"--trim-silence".to_string()));
+        // Tokenizer path derived from models_path
+        assert!(s.args.contains(&"/m/tokenizer.json".to_string()));
+        // Output path contains job_id
+        assert!(s.output_path.to_string_lossy().contains("j1"));
+    }
+    #[test]
+    fn spec_no_dead_flags() {
         let r = GenerationRequest {
             text: "hi".into(),
             language: "en".into(),
             model_id: "s2".into(),
-            seed: None,
+            seed: Some(42),
             voice_preset_id: None,
             reference_audio_path: None,
             reference_text: None,
@@ -394,16 +452,100 @@ mod tests {
             state: ModelState::Installed,
         };
         let s = GenerationCommandSpec::from_request(&r, &c, &m, "j1");
-        assert!(s.args.contains(&"hi".to_string()));
-        assert!(s.output_path.to_string_lossy().contains("j1"));
+        // These flags do not exist in the real s2 CLI
+        assert!(!s.args.contains(&"--lang".to_string()));
+        assert!(!s.args.contains(&"en".to_string()));
+        assert!(!s.args.contains(&"--seed".to_string()));
+        assert!(!s.args.contains(&"42".to_string()));
+        assert!(!s.args.contains(&"--out".to_string()));
+        assert!(!s.args.contains(&"--no-gpu".to_string()));
     }
-
+    #[test]
+    fn spec_gpu_disabled_uses_vulkan_cpu() {
+        let r = GenerationRequest {
+            text: "hi".into(),
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+        let c = AppConfig {
+            mode: AppMode::Simple,
+            binary_path: "/b".into(),
+            models_path: "/m".into(),
+            outputs_path: "/o".into(),
+            default_model_id: "s2".into(),
+            default_audio_format: AudioFormat::Wav,
+            cpu_threads: 1,
+            gpu_enabled: false,
+            advanced_args: Default::default(),
+        };
+        let m = LocalModel {
+            id: "s2".into(),
+            quant: ModelQuant::Q6,
+            filename: "f".into(),
+            display_size: "1".into(),
+            approx_bytes: 1,
+            recommendation: "r".into(),
+            tokenizer_required: false,
+            checksum: None,
+            download_url: None,
+            state: ModelState::Installed,
+        };
+        let s = GenerationCommandSpec::from_request(&r, &c, &m, "j1");
+        assert!(s.args.contains(&"-v".to_string()));
+        assert!(s.args.contains(&"-1".to_string()));
+    }
+    #[test]
+    fn spec_voice_cloning_args() {
+        let r = GenerationRequest {
+            text: "hi".into(),
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: Some("/audio/ref.wav".into()),
+            reference_text: Some("reference transcript".into()),
+        };
+        let c = AppConfig {
+            mode: AppMode::Simple,
+            binary_path: "/b".into(),
+            models_path: "/m".into(),
+            outputs_path: "/o".into(),
+            default_model_id: "s2".into(),
+            default_audio_format: AudioFormat::Wav,
+            cpu_threads: 1,
+            gpu_enabled: true,
+            advanced_args: Default::default(),
+        };
+        let m = LocalModel {
+            id: "s2".into(),
+            quant: ModelQuant::Q6,
+            filename: "f".into(),
+            display_size: "1".into(),
+            approx_bytes: 1,
+            recommendation: "r".into(),
+            tokenizer_required: false,
+            checksum: None,
+            download_url: None,
+            state: ModelState::Installed,
+        };
+        let s = GenerationCommandSpec::from_request(&r, &c, &m, "j1");
+        assert!(s.args.contains(&"--prompt-audio".to_string()));
+        assert!(s.args.contains(&"/audio/ref.wav".to_string()));
+        assert!(s.args.contains(&"--prompt-text".to_string()));
+        assert!(s.args.contains(&"reference transcript".to_string()));
+        // Old placeholder flags must be absent
+        assert!(!s.args.contains(&"--ref-audio".to_string()));
+        assert!(!s.args.contains(&"--ref-text".to_string()));
+    }
     #[test]
     fn default_pm_idle() {
         let p = ProcessManager::default();
         assert!(p.child.is_none());
     }
-
     #[test]
     fn cancel_noop() {
         assert!(!ProcessManager::default().cancel_active());

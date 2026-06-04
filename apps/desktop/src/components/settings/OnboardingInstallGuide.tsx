@@ -35,7 +35,7 @@ function LanguageSelector({ language, onChange }: LanguageSelectorProps) {
 
   return (
     <fieldset className="space-y-1">
-      <legend className="text-xs font-medium text-muted">
+      <legend className="text-xs font-medium text-concrete-300">
         {copy.languageLabel}
       </legend>
       <div className="flex gap-2">
@@ -45,10 +45,10 @@ function LanguageSelector({ language, onChange }: LanguageSelectorProps) {
             type="button"
             aria-pressed={language === value}
             onClick={() => onChange(value)}
-            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            className={`rounded-brutal border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric ${
               language === value
-                ? "border-accent bg-accent/10 text-accent"
-                : "border-line text-muted hover:text-studio-foreground"
+                ? "border-electric bg-electric/10 text-electric"
+                : "border-glass-border text-concrete-300 hover:text-concrete-50"
             }`}
           >
             {value === "es" ? copy.spanish : copy.english}
@@ -94,23 +94,23 @@ function CommandBlock({
   return (
     <section className="space-y-1">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-studio-foreground">
+        <h4 className="text-xs font-semibold text-concrete-50">
           {label}
         </h4>
         <button
           type="button"
           onClick={handleCopy}
           disabled={copied}
-          className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+          className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric ${
             copied
-              ? "bg-accent/10 text-accent"
-              : "bg-line/50 text-muted hover:text-studio-foreground"
+              ? "bg-electric/10 text-electric"
+              : "bg-concrete-600 text-concrete-300 hover:text-concrete-50"
           }`}
         >
           {copied ? copiedLabel : copyLabel}
         </button>
       </div>
-      <pre className="overflow-x-auto rounded-md border border-line bg-studio p-3 text-[11px] leading-relaxed text-muted">
+      <pre className="overflow-x-auto rounded-brutal border border-glass-border bg-concrete-800 p-3 text-[11px] leading-relaxed text-concrete-300">
         <code>{value}</code>
       </pre>
     </section>
@@ -119,7 +119,7 @@ function CommandBlock({
 
 function BulletList({ items }: { items: readonly string[] }) {
   return (
-    <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-muted">
+    <ul className="list-disc space-y-1 pl-5 text-xs leading-relaxed text-concrete-300">
       {items.map((item) => (
         <li key={item}>{item}</li>
       ))}
@@ -136,7 +136,7 @@ export function OnboardingInstallGuide() {
     return (
       <article
         aria-labelledby="full-install-guide-title"
-        className="space-y-5 rounded-lg border border-line bg-panel/40 px-4 py-4"
+        className="space-y-5 rounded-brutal border border-glass-border bg-glass/40 px-4 py-4"
       >
         <div className="space-y-3">
           <h3 id="full-install-guide-title" className="text-base font-semibold">
@@ -147,14 +147,14 @@ export function OnboardingInstallGuide() {
 
         <section className="space-y-1">
           <h4 className="text-sm font-semibold">{copy.communityHeading}</h4>
-          <p className="text-xs leading-relaxed text-muted">
+          <p className="text-xs leading-relaxed text-concrete-300">
             {copy.communityBody}
           </p>
         </section>
 
         <section className="space-y-2">
           <h4 className="text-sm font-semibold">{copy.windowsHeading}</h4>
-          <p className="text-xs leading-relaxed text-muted">
+          <p className="text-xs leading-relaxed text-concrete-300">
             {copy.windowsBody}
           </p>
           <CommandBlock
@@ -167,7 +167,7 @@ export function OnboardingInstallGuide() {
 
         <section className="space-y-2">
           <h4 className="text-sm font-semibold">{copy.linuxHeading}</h4>
-          <p className="text-xs leading-relaxed text-muted">{copy.linuxBody}</p>
+          <p className="text-xs leading-relaxed text-concrete-300">{copy.linuxBody}</p>
           <CommandBlock
             label={copy.linuxShell}
             value={LINUX_COMMANDS}
@@ -178,7 +178,7 @@ export function OnboardingInstallGuide() {
 
         <section className="space-y-2">
           <h4 className="text-sm font-semibold">{copy.macosHeading}</h4>
-          <p className="text-xs leading-relaxed text-muted">{copy.macosBody}</p>
+          <p className="text-xs leading-relaxed text-concrete-300">{copy.macosBody}</p>
           <CommandBlock
             label={copy.macosTerminal}
             value={MACOS_COMMANDS}
@@ -189,7 +189,7 @@ export function OnboardingInstallGuide() {
 
         <section className="space-y-1">
           <h4 className="text-sm font-semibold">{copy.modelHeading}</h4>
-          <p className="text-xs leading-relaxed text-muted">{copy.modelBody}</p>
+          <p className="text-xs leading-relaxed text-concrete-300">{copy.modelBody}</p>
         </section>
 
         <section className="space-y-1">
@@ -220,14 +220,14 @@ export function OnboardingInstallGuide() {
           <button
             type="button"
             onClick={() => openExternalLink("engineSource")}
-            className="text-xs text-muted underline underline-offset-2 transition-colors hover:text-studio-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="text-xs text-concrete-300 underline underline-offset-2 transition-colors hover:text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric"
           >
             {copy.sourceButton}
           </button>
           <button
             type="button"
             onClick={() => openExternalLink("ggufSource")}
-            className="text-xs text-muted underline underline-offset-2 transition-colors hover:text-studio-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="text-xs text-concrete-300 underline underline-offset-2 transition-colors hover:text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric"
           >
             {copy.modelsButton}
           </button>
@@ -236,7 +236,7 @@ export function OnboardingInstallGuide() {
         <button
           type="button"
           onClick={() => setShowFullGuide(false)}
-          className="rounded-lg bg-line/50 px-4 py-2 text-sm font-medium text-studio-foreground transition-colors hover:bg-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="rounded-brutal bg-concrete-600 px-4 py-2 text-sm font-medium text-concrete-50 transition-colors hover:bg-glass-heavy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric"
         >
           {copy.backButton}
         </button>
@@ -245,14 +245,14 @@ export function OnboardingInstallGuide() {
   }
 
   return (
-    <details className="rounded-lg border border-line bg-panel/40 px-4 py-3">
-      <summary className="cursor-pointer text-sm font-medium text-studio-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+    <details className="rounded-brutal border border-glass-border bg-glass/40 px-4 py-3">
+      <summary className="cursor-pointer text-sm font-medium text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric">
         {copy.quickSummary}
       </summary>
       <div className="mt-4 space-y-4">
         <LanguageSelector language={language} onChange={setLanguage} />
-        <p className="text-xs leading-relaxed text-muted">{copy.quickIntro}</p>
-        <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-muted">
+        <p className="text-xs leading-relaxed text-concrete-300">{copy.quickIntro}</p>
+        <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-concrete-300">
           {copy.quickSteps.map((step) => (
             <li key={step}>{step}</li>
           ))}
@@ -279,21 +279,21 @@ export function OnboardingInstallGuide() {
           <button
             type="button"
             onClick={() => setShowFullGuide(true)}
-            className="rounded-lg bg-line/50 px-3 py-1.5 text-xs font-medium text-studio-foreground transition-colors hover:bg-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="rounded-brutal bg-concrete-600 px-3 py-1.5 text-xs font-medium text-concrete-50 transition-colors hover:bg-glass-heavy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric"
           >
             {copy.fullGuideButton}
           </button>
           <button
             type="button"
             onClick={() => openExternalLink("engineSource")}
-            className="text-xs text-muted underline underline-offset-2 transition-colors hover:text-studio-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="text-xs text-concrete-300 underline underline-offset-2 transition-colors hover:text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric"
           >
             {copy.sourceButton}
           </button>
           <button
             type="button"
             onClick={() => openExternalLink("ggufSource")}
-            className="text-xs text-muted underline underline-offset-2 transition-colors hover:text-studio-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="text-xs text-concrete-300 underline underline-offset-2 transition-colors hover:text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric"
           >
             {copy.modelsButton}
           </button>

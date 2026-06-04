@@ -1,15 +1,42 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { HashRouter } from "react-router-dom";
 import { Toaster } from "sonner";
-
+import { studioClient } from "@/lib/tauri";
+import { useAppStore } from "@/stores/useAppStore";
 interface AppProvidersProps {
   children: ReactNode;
 }
-
 export function AppProviders({ children }: AppProvidersProps) {
   const [queryClient] = useState(() => new QueryClient());
-
+  // Seed built-in voices on first launch.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const config = await studioClient.getAppConfig();
+        if (!config || !config.outputsPath) return;
+        if (cancelled) return;
+        const results = await studioClient.seedBuiltInVoices(config.outputsPath);
+        if (cancelled || !results) return;
+        const downloaded = results.filter((r) => r.success && !r.error).length;
+        const skipped = results.filter((r) => r.success && r.error).length;
+        if (downloaded > 0) {
+          console.log(
+            `[built-in voices] seeded ${downloaded} voices, ${skipped} already existed`
+          );
+          // Invalidate voice-presets query so the selector refreshes.
+          queryClient.invalidateQueries({ queryKey: ["voice-presets"] });
+        }
+      } catch (e) {
+        // Non-fatal: seeding failure should not block the app.
+        console.warn("[built-in voices] seeding failed:", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [queryClient]);
   return (
     <QueryClientProvider client={queryClient}>
       <HashRouter>
@@ -20,7 +47,7 @@ export function AppProviders({ children }: AppProvidersProps) {
           theme="dark"
           toastOptions={{
             classNames: {
-              toast: "border-line bg-panel text-studio-foreground",
+              toast: "border-glass-border bg-glass text-concrete-50",
             },
           }}
         />

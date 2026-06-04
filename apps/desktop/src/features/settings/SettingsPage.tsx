@@ -35,7 +35,7 @@ export function SettingsPage() {
     <section className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-normal">Settings</h1>
-        <p className="mt-1 text-sm text-muted">Local app configuration.</p>
+        <p className="mt-1 text-sm text-concrete-300">Local app configuration.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -46,19 +46,19 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
-              <label htmlFor="binaryPath" className="text-sm font-medium text-studio-foreground">Binary</label>
+              <label htmlFor="binaryPath" className="text-sm font-medium text-concrete-50">Binary</label>
               <Input id="binaryPath" {...register("binaryPath")} placeholder="/path/to/s2" aria-invalid={!!errors.binaryPath} />
-              {errors.binaryPath && <p className="text-xs text-danger">{errors.binaryPath.message}</p>}
+              {errors.binaryPath && <p className="text-xs text-ember">{errors.binaryPath.message}</p>}
             </div>
             <div className="space-y-1">
-              <label htmlFor="modelsPath" className="text-sm font-medium text-studio-foreground">Models</label>
+              <label htmlFor="modelsPath" className="text-sm font-medium text-concrete-50">Models</label>
               <Input id="modelsPath" {...register("modelsPath")} placeholder="/path/to/models" aria-invalid={!!errors.modelsPath} />
-              {errors.modelsPath && <p className="text-xs text-danger">{errors.modelsPath.message}</p>}
+              {errors.modelsPath && <p className="text-xs text-ember">{errors.modelsPath.message}</p>}
             </div>
             <div className="space-y-1">
-              <label htmlFor="outputsPath" className="text-sm font-medium text-studio-foreground">Outputs</label>
+              <label htmlFor="outputsPath" className="text-sm font-medium text-concrete-50">Outputs</label>
               <Input id="outputsPath" {...register("outputsPath")} placeholder="/path/to/outputs" aria-invalid={!!errors.outputsPath} />
-              {errors.outputsPath && <p className="text-xs text-danger">{errors.outputsPath.message}</p>}
+              {errors.outputsPath && <p className="text-xs text-ember">{errors.outputsPath.message}</p>}
             </div>
           </CardContent>
         </Card>
@@ -70,21 +70,21 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
-              <label htmlFor="defaultModelId" className="text-sm font-medium text-studio-foreground">Model</label>
+              <label htmlFor="defaultModelId" className="text-sm font-medium text-concrete-50">Model</label>
               <select id="defaultModelId" {...register("defaultModelId")}
-                className="flex h-9 w-full rounded-md border border-line bg-studio px-3 py-1 text-sm text-studio-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                className="flex h-9 w-full rounded-brutal border border-glass-border bg-concrete-800 px-3 py-1 text-sm text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric">
                 {S2_MODEL_MANIFEST.map((m) => (
                   <option key={m.id} value={m.id}>{m.id} ({m.quant} — {m.displaySize})</option>
                 ))}
               </select>
             </div>
             <div className="space-y-1">
-              <label htmlFor="cpuThreads" className="text-sm font-medium text-studio-foreground">CPU Threads</label>
+              <label htmlFor="cpuThreads" className="text-sm font-medium text-concrete-50">CPU Threads</label>
               <Input id="cpuThreads" type="number" min={1} max={256} {...register("cpuThreads")} />
             </div>
             <div className="flex items-center gap-2">
-              <input id="gpuEnabled" type="checkbox" {...register("gpuEnabled")} className="h-4 w-4 accent-accent" />
-              <label htmlFor="gpuEnabled" className="text-sm font-medium text-studio-foreground">Enable GPU</label>
+              <input id="gpuEnabled" type="checkbox" {...register("gpuEnabled")} className="h-4 w-4 accent-electric" />
+              <label htmlFor="gpuEnabled" className="text-sm font-medium text-concrete-50">Enable GPU</label>
             </div>
           </CardContent>
         </Card>
