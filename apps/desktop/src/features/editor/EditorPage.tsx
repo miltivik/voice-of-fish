@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { LANGUAGE_OPTIONS } from "@voice-of-fish/shared/constants";
 import type { SentenceClip } from "@voice-of-fish/shared";
 import { toast } from "sonner";
 import { studioClient, pickFolderPath } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LanguageSelect } from "@/components/ui/LanguageSelect";
 
 function formatTime(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -90,7 +90,7 @@ export function EditorPage() {
     <section className="space-y-5">
       <div>
         <h1 className="text-2xl font-semibold tracking-normal">Editor</h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-1 text-sm text-concrete-300">
           Paste a script, generate each sentence as a clip, and export for
           DaVinci Resolve.
         </p>
@@ -106,17 +106,17 @@ export function EditorPage() {
             onChange={(e) => setScript(e.target.value)}
             rows={8}
             placeholder={`Welcome to the show. Today we explore artificial intelligence. But first, a word from our sponsor.`}
-            className="flex min-h-[160px] w-full rounded-md border border-line bg-studio px-3 py-2 text-sm text-studio-foreground shadow-sm transition-colors placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-studio"
+            className="flex min-h-[160px] w-full rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2 text-sm text-concrete-50 shadow-sm transition-colors placeholder:text-concrete-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric focus-visible:ring-offset-2 focus-visible:ring-offset-concrete"
           />
 
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <label htmlFor="editor-model" className="text-xs font-medium text-muted">Model</label>
+              <label htmlFor="editor-model" className="text-xs font-medium text-concrete-300">Model</label>
               <select
                 id="editor-model"
                 value={modelId}
                 onChange={(e) => setModelId(e.target.value)}
-                className="h-8 rounded-md border border-line bg-studio px-2 text-xs text-studio-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                className="h-8 rounded-brutal border border-glass-border bg-concrete-800 px-2 text-xs text-concrete-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-electric"
               >
                 {installedModels.map((m) => (
                   <option key={m.id} value={m.id}>{m.quant}</option>
@@ -125,12 +125,12 @@ export function EditorPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <label htmlFor="editor-voice" className="text-xs font-medium text-muted">Voice</label>
+              <label htmlFor="editor-voice" className="text-xs font-medium text-concrete-300">Voice</label>
               <select
                 id="editor-voice"
                 value={voicePresetId}
                 onChange={(e) => setVoicePresetId(e.target.value)}
-                className="h-8 rounded-md border border-line bg-studio px-2 text-xs text-studio-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                className="h-8 rounded-brutal border border-glass-border bg-concrete-800 px-2 text-xs text-concrete-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-electric"
               >
                 <option value="">None</option>
                 {(presets.data ?? []).map((p) => (
@@ -140,17 +140,8 @@ export function EditorPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <label htmlFor="editor-language" className="text-xs font-medium text-muted">Language</label>
-              <select
-                id="editor-language"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="h-8 rounded-md border border-line bg-studio px-2 text-xs text-studio-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-              >
-                {LANGUAGE_OPTIONS.map((lang) => (
-                  <option key={lang.value} value={lang.value}>{lang.label}</option>
-                ))}
-              </select>
+              <label htmlFor="editor-language" className="text-xs font-medium text-concrete-300">Language</label>
+              <LanguageSelect id="language" value={language} onChange={(e) => setLanguage(e.target.value)} />
             </div>
 
             <Button
@@ -211,17 +202,17 @@ export function EditorPage() {
               return (
                 <div
                   key={clip.wavPath}
-                  className="flex items-center gap-3 rounded-md border border-line bg-studio px-3 py-2"
+                  className="flex items-center gap-3 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2"
                 >
-                  <span className="w-6 text-center text-xs tabular-nums text-muted">{i + 1}</span>
+                  <span className="w-6 text-center text-xs tabular-nums text-concrete-300">{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <input
                       value={clip.text}
                       onChange={(e) => updateClipText(i, e.target.value)}
-                      className="w-full truncate bg-transparent text-sm text-studio-foreground outline-none"
+                      className="w-full truncate bg-transparent text-sm text-concrete-50 outline-none"
                       aria-label={`Edit subtitle ${i + 1}`}
                     />
-                    <p className="mt-0.5 text-xs text-muted">
+                    <p className="mt-0.5 text-xs text-concrete-300">
                       {formatTime(clip.startMs)} → {formatTime(clip.endMs)}
                       {" · "}
                       {duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`}
@@ -233,16 +224,16 @@ export function EditorPage() {
                       const audio = new Audio(clip.wavPath);
                       audio.play().catch(() => {});
                     }}
-                    className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-muted transition-colors hover:bg-line/40 hover:text-studio-foreground"
+                    className="shrink-0 rounded-brutal px-2 py-1 text-xs font-medium text-concrete-300 transition-colors hover:bg-glass-heavy hover:text-concrete-50"
                     title="Play clip"
                   >
                     {"▶"}
                   </button>
                   <div
-                    className="h-2 rounded-full bg-accent/30"
+                    className="h-2 rounded-full bg-electric/30"
                     style={{ width: `${widthPercent}%`, maxWidth: 120 }}
                   >
-                    <div className="h-full rounded-full bg-accent" style={{ width: "100%" }} />
+                    <div className="h-full rounded-full bg-electric" style={{ width: "100%" }} />
                   </div>
                 </div>
               );
