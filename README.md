@@ -4,7 +4,8 @@ Local voice generation studio desktop app powered by s2.cpp. Compose script text
 
 ## Status
 
-**Partial-real slice** — Configuration persistence, system diagnostics, and generation process management are now real (Tauri commands with actual sysinfo, path validation, binary detection, child process spawn/cancel/logs). Model downloads and voice cloning remain in mock mode. Generation uses documented placeholder flags; real audio output requires confirming the actual s2.cpp CLI flags.
+**Real slice** — Configuration persistence, system diagnostics, generation process management, model downloads, and voice cloning are all real Tauri commands. Model downloads fetch GGUF files from HuggingFace with progress reporting and SHA256 verification. Built-in voice seeding downloads reference audio and creates VoicePresets wired to s2.cpp via `--prompt-audio`/`--prompt-text`. Generation spawns the real s2.cpp binary with correct CLI flags; end-to-end audio output awaits confirmation against the actual binary.
+Diagnostics report CPU/RAM/app version, binary presence, and best-effort Linux GPU labels from /sys/class/drm; non-Linux GPU reporting may be absent.
 
 **Cross-platform desktop target** — the desktop app supports Windows and Linux UX paths. Linux/Hyprland users can select extensionless `s2.cpp` binaries and should read [`docs/hyprland-setup.md`](docs/hyprland-setup.md) for Wayland-specific launch notes.
 
@@ -67,7 +68,8 @@ voice-of-fish/
 - **s2.cpp execution** — `apps/desktop/src-tauri/src/process.rs` spawns the configured binary with real CLI flags: `--model <gguf>`, `--tokenizer <tokenizer.json>`, `--text <text>`, `--output <wav>`, `--threads <n>`, `--normalize`, `--trim-silence`, `-v -1` (CPU mode), `--prompt-audio <ref.wav>`, `--prompt-text <transcript>`. Flags that do not exist in the real s2 CLI (`--lang`, `--seed`, `--out`, `--no-gpu`, `--ref-audio`, `--ref-text`) have been removed. The `language` and `seed` fields remain in `GenerationRequest` for forward compatibility but are not forwarded to the binary.
 - **Process lifecycle** — `run_generation` spawns the binary, captures stdout/stderr incrementally, monitors exit status via `try_wait` loop, and supports cancellation (`cmd /c taskkill`-equivalent). Only one generation runs at a time in simple mode.
 - **Path redaction** — `GenerationCommandSpec::redacted_display()` replaces all path-like args with `<path>` for safe display in Diagnostics.
-- Model manifest entries include quant, filename, display size, tokenizer flag, and recommendation — match these against the real GGUF catalog.
+- Model manifest entries include real SHA256 hashes, HuggingFace file sizes, quant, filename, tokenizer flag, and recommendation — match these against the real GGUF catalog.
+- **System diagnostics** — `get_system_info` reports CPU/RAM/app version, binary presence, and best-effort Linux GPU labels from `/sys/class/drm`; non-Linux GPU reporting may be absent.
 - The typed command boundary (`StudioClient` interface) mirrors registered Tauri commands exactly; no direct IPC bypass.
 
 ## Model License

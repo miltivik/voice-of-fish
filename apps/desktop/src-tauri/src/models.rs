@@ -195,11 +195,11 @@ impl LocalModel {
                 id: "s2-q8".to_string(),
                 quant: ModelQuant::Q8,
                 filename: "s2-pro-q8_0.gguf".to_string(),
-                display_size: "5.3 GB".to_string(),
-                approx_bytes: 5_300_000_000,
+                display_size: "5.6 GB".to_string(),
+                approx_bytes: 5_630_037_088,
                 recommendation: "Highest quality, higher VRAM use.".to_string(),
                 tokenizer_required: true,
-                checksum: Some("a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                checksum: Some("e2043182234786e7b975547d3bbcb23ff02e4ff684b82f7fa851287e4cb4f267".to_string()),
                 download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q8_0.gguf")),
                 state: ModelState::NotInstalled,
             },
@@ -207,11 +207,11 @@ impl LocalModel {
                 id: "s2-q6".to_string(),
                 quant: ModelQuant::Q6,
                 filename: "s2-pro-q6_k.gguf".to_string(),
-                display_size: "4.3 GB".to_string(),
-                approx_bytes: 4_300_000_000,
+                display_size: "4.5 GB".to_string(),
+                approx_bytes: 4_525_266_528,
                 recommendation: "Recommended balance.".to_string(),
                 tokenizer_required: true,
-                checksum: Some("b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                checksum: Some("84ac904172a2cadb84e8f7f14ea3f1acef0584987635e85f7207fd254eafa235".to_string()),
                 download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q6_k.gguf")),
                 state: ModelState::Installed,
             },
@@ -219,11 +219,11 @@ impl LocalModel {
                 id: "s2-q5".to_string(),
                 quant: ModelQuant::Q5,
                 filename: "s2-pro-q5_k_m.gguf".to_string(),
-                display_size: "3.8 GB".to_string(),
-                approx_bytes: 3_800_000_000,
+                display_size: "4.0 GB".to_string(),
+                approx_bytes: 4_031_183_968,
                 recommendation: "Stable choice for limited GPUs.".to_string(),
                 tokenizer_required: true,
-                checksum: Some("c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                checksum: Some("e445b0c8f32ed0ff584b906098f0fe53a67c0691249bfcccde569544f7d72cb9".to_string()),
                 download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q5_k_m.gguf")),
                 state: ModelState::NotInstalled,
             },
@@ -231,11 +231,11 @@ impl LocalModel {
                 id: "s2-q4".to_string(),
                 quant: ModelQuant::Q4,
                 filename: "s2-pro-q4_k_m.gguf".to_string(),
-                display_size: "3.4 GB".to_string(),
-                approx_bytes: 3_400_000_000,
+                display_size: "3.6 GB".to_string(),
+                approx_bytes: 3_566_165_088,
                 recommendation: "Lower consumption, lower quality.".to_string(),
                 tokenizer_required: true,
-                checksum: Some("d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2".to_string()),
+                checksum: Some("83963e1b7cec980b41eb2163d617e2b6241bfd1564dd880e5b43fc4834807bd9".to_string()),
                 download_url: Some(format!("https://huggingface.co/rodrigomt/s2-pro-gguf/resolve/main/{}", "s2-pro-q4_k_m.gguf")),
                 state: ModelState::NotInstalled,
             },
@@ -341,18 +341,6 @@ pub struct GenerationLogLine {
     pub created_at: String,
 }
 
-impl GenerationLogLine {
-    /// TODO: replace with a proper error return or empty vec.
-    /// This fallback masks the ProcessManager lock failure.
-    pub fn mock_lines() -> Vec<Self> {
-        vec![Self {
-            id: "log-1".to_string(),
-            stream: LogStream::System,
-            message: "Mock engine idle.".to_string(),
-            created_at: "2026-05-22T12:00:00.000Z".to_string(),
-        }]
-    }
-}
 
 /// A record of a completed or cancelled generation.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -392,8 +380,8 @@ pub struct VoicePreset {
 #[cfg(test)]
 mod tests {
     use super::{
-        split_sentences, GenerationJob, GenerationLogLine, GenerationRequest, GenerationStatus,
-        LocalModel, ModelQuant, ModelState, SystemInfo,
+        split_sentences, GenerationJob, GenerationRequest, GenerationStatus, LocalModel, ModelQuant,
+        ModelState, SystemInfo,
     };
     #[test]
     fn system_info_omits_absent_optional_fields() {
@@ -511,12 +499,6 @@ mod tests {
         assert!(result.is_empty());
     }
 
-    #[test]
-    fn generation_log_line_mock_lines() {
-        let lines = GenerationLogLine::mock_lines();
-        assert_eq!(lines.len(), 1);
-        assert_eq!(lines[0].id, "log-1");
-    }
 }
 /// A single sentence clip with timing metadata for editor export.
 #[derive(Debug, Clone, Serialize, Deserialize)]

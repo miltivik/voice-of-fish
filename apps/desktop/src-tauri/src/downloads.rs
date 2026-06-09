@@ -80,22 +80,15 @@ pub fn download_model_file(
         .filter(|c| !c.is_empty())
         .ok_or_else(|| format!("download not available for {model_id}: no checksum"))?;
 
-    // Warn about placeholder checksums — SHA256 verification is skipped for these.
+    // Fail closed: refuse to download if checksum is not a real SHA256.
     if is_placeholder_checksum(checksum) {
-        eprintln!(
-            "[download] checksum for '{}' is a placeholder; SHA256 verification skipped",
-            model_id
-        );
+        return Err(format!("download not available for {model_id}: checksum is not a real SHA256"));
     }
-
     let max_bytes = ((entry.approx_bytes as f64) * DOWNLOAD_SIZE_MARGIN) as u64;
-
     std::fs::create_dir_all(models_path).map_err(|e| format!("failed to create models directory: {e}"))?;
-
     let models_path = models_path
         .canonicalize()
         .map_err(|e| format!("failed to resolve models path: {e}"))?;
-
     let final_path = models_path.join(&entry.filename);
     let temp_path = models_path.join(format!(
         "{}.dl-{}.part",
@@ -105,7 +98,6 @@ pub fn download_model_file(
             .map(|d| d.as_nanos())
             .unwrap_or(0),
     ));
-
     let response = ureq::get(url).call().map_err(|e| {
         let _ = std::fs::remove_file(&temp_path);
         match e {
@@ -113,8 +105,6 @@ pub fn download_model_file(
             other => format!("download request failed: {other}"),
         }
     })?;
-
-    // Get content-length for progress reporting.
     // Get content-length for progress reporting and max_bytes validation.
     let total_bytes = response
         .headers()
@@ -122,7 +112,6 @@ pub fn download_model_file(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(entry.approx_bytes);
-
     // Validate Content-Length against max_bytes before streaming.
     if total_bytes > max_bytes {
         let _ = std::fs::remove_file(&temp_path);
@@ -134,7 +123,6 @@ pub fn download_model_file(
         let _ = std::fs::remove_file(&temp_path);
         format!("failed to create temp file: {e}")
     })?;
-
     let mut downloaded: u64 = 0;
     let mut last_emitted: u64 = 0;
     let mut reader = response.into_body().into_reader();
@@ -185,27 +173,11 @@ pub fn download_model_file(
             }),
         );
     }
-
-    // Skip SHA256 verification when checksum is a placeholder.
-    // This avoids 10-30 seconds of disk I/O on 4+ GB files for checksums
-    // that are known to be invalid (the manifest has placeholder values).
-    if is_placeholder_checksum(checksum) {
-        if let Some(app) = &app {
-            let _ = app.emit(
-                "download-progress",
-                serde_json::json!({
-                    "modelId": model_id,
-                    "downloaded": downloaded,
-                    "total": total_bytes,
-                    "phase": "skipping-verification",
-                }),
-            );
-        }
-    } else if let Err(e) = verify_checksum(&temp_path, checksum) {
+    // Verify checksum after download; remove temp file on mismatch.
+    if let Err(e) = verify_checksum(&temp_path, checksum) {
         let _ = std::fs::remove_file(&temp_path);
         return Err(format!("checksum verification failed: {e}"));
     }
-
     #[cfg(windows)]
     {
         let _ = std::fs::remove_file(&final_path);
@@ -354,5 +326,12 @@ mod tests {
         ));
         // Too long (not valid hex either)
         assert!(is_placeholder_checksum("a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2x"));
+    }
+    #[test]
+    fn manifest_checksums_are_real_sha256() {
+        for model in model_catalog() {
+            let checksum = model.checksum.as_deref().expect("checksum is required");
+            assert!(!is_placeholder_checksum(checksum), "{} has placeholder checksum", model.id);
+        }
     }
 }

@@ -6,7 +6,7 @@ import { generationRequestSchema } from "@voice-of-fish/shared/schemas";
 import type { GenerationJob, GenerationRequest } from "@voice-of-fish/shared";
 import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { GenerationResult } from "@/components/generation/GenerationResult";
 import { RecentGenerations } from "@/components/generation/RecentGenerations";
@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { studioClient } from "@/lib/tauri";
 import { useAppStore } from "@/stores/useAppStore";
 import { useGenerationStore } from "@/stores/useGenerationStore";
+import { useGenerationPolling } from "./useGenerationPolling";
 
 type FormValues = z.infer<typeof generationRequestSchema>;
 
@@ -34,7 +35,7 @@ const STATUS_PROGRESS: Record<string, number> = {
 export function GenerationPage() {
   const [completedJob, setCompletedJob] = useState<GenerationJob | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const queryClient = useQueryClient();
+  const { startPolling } = useGenerationPolling({ onCompletedJob: setCompletedJob });
   const models = useQuery({
     queryKey: ["models"],
     queryFn: studioClient.listLocalModels,
@@ -80,42 +81,7 @@ export function GenerationPage() {
     onSuccess: (job) => {
       setCompletedJob(job);
       useGenerationStore.getState().setStatus("generating");
-      // Poll until the backend process finishes.
-      const poll = setInterval(async () => {
-        try {
-          const active = await studioClient.getActiveJob();
-          if (!active) {
-            // Process finished and manager cleared the job.
-            clearInterval(poll);
-            useGenerationStore.getState().setStatus("completed");
-            useAppStore.getState().setFooterStatus("ready");
-            queryClient.invalidateQueries({ queryKey: ["history"] });
-            return;
-          }
-          if (active.status === "completed") {
-            clearInterval(poll);
-            setCompletedJob(active);
-            useGenerationStore.getState().setStatus("completed");
-            useAppStore.getState().setFooterStatus("ready");
-            queryClient.invalidateQueries({ queryKey: ["history"] });
-            toast.success("Generation completed");
-          } else if (active.status === "failed") {
-            clearInterval(poll);
-            setCompletedJob(active);
-            useGenerationStore.getState().setStatus("failed");
-            useAppStore.getState().setFooterStatus("error");
-            queryClient.invalidateQueries({ queryKey: ["history"] });
-            toast.error(`Generation failed: ${active.error ?? "unknown error"}`);
-          } else if (active.status === "cancelled") {
-            clearInterval(poll);
-            useGenerationStore.getState().setStatus("cancelled");
-            useAppStore.getState().setFooterStatus("ready");
-          }
-          // "generating" → keep polling
-        } catch {
-          // Ignore transient polling errors
-        }
-      }, 500);
+      startPolling();
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);

@@ -109,15 +109,19 @@ export const generationRequestSchema = z.object({
   text: z.string().min(1).max(TEXT_MAX_LENGTH),
   language: z.string(),
   modelId: z.string(),
+  seed: optionalSeed,
+  voicePresetId: z.string().optional(),
+  referenceAudioPath: z.string().optional(),
+  referenceText: z.string().optional(),
 });
 ```
-
 **Usage:**
 ```typescript
 const form = useForm<FormValues>({
   resolver: zodResolver(generationRequestSchema),
-  defaultValues: { text: "", language: "en", modelId: "s2-q6" },
+  defaultValues: { text: "", language: "en", modelId: "s2-q6", seed: undefined },
 });
+```
 ```
 
 - Schema is shared between frontend (validation) and backend (documentation).
@@ -208,7 +212,7 @@ pub fn my_command(
 4. **No 1:1 proxy objects.** `tauriClient` → `studioClient` was deleted. One indirection is the max.
 5. **No one-line function wrappers.** `hasAnyExtension(path, exts)` was inlined. A function whose entire body is `return expr` must stay inline unless it represents a named domain concept used in ≥3 call sites.
 6. **Dead code must be deleted, not commented out.** Deleted in this pass: `AdvancedArgValue`, `MOCK_HISTORY`, `DeskTopPlatform` re-export, `joinDisplayPath`, duplicate `SUPPORTED_LANGUAGES`, `tauriClient`/`mockClient` dead mock entries.
-7. **Component ≤200 lines.** If a component grows past that, extract sub-components or hooks. `GenerationPage` is the largest at ~340 lines; its polling logic is a candidate for extraction.
+7. **Component ≤200 lines.** If a component grows past that, extract sub-components or hooks. Generation polling lives in `apps/desktop/src/features/generation/useGenerationPolling.ts`; page components should keep timers inside hooks with unmount cleanup. `GenerationPage` is the largest at ~300 lines; its voice preset selector group is a candidate for extraction.
 8. **No `ReturnType<typeof fn>` for contracts.** Export named types from the module that owns the value. The only exception is `setTimeout`/`setInterval` handles.
 9. **Path validation lives in Rust.** `validatePath()` in the frontend is informational-only. Don't duplicate security checks.
 10. **Every new built-in voice adds one entry** to both `packages/shared/src/built-in-voices.ts` and `apps/desktop/src-tauri/src/built_in_voices.rs`. Reference audio must come from a stable URL (Hugging Face dataset) with a verified file path.

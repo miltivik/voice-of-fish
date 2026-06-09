@@ -9,18 +9,23 @@
  *   beforeEach(() => setupTauriMocks({ get_system_info: {...} }));
  */
 
+export type TauriMockHandler = (args?: unknown) => unknown;
+export type TauriMockValue = unknown | TauriMockHandler;
+
 /**
  * Configure mock Tauri command return values.
  * Call in beforeEach. Unknown commands return null.
+ * Values can be static or handler functions (for dynamic responses).
  */
-export function setupTauriMocks(commands: Record<string, unknown>) {
+export function setupTauriMocks(commands: Record<string, TauriMockValue>) {
   const invokeMock = (globalThis as Record<string, unknown>)
-    .__tauriInvoke as (cmd: string) => unknown;
+    .__tauriInvoke as {
+      mockImplementation: (impl: (cmd: string, args?: unknown) => unknown) => void;
+    } | undefined;
   if (!invokeMock) return;
-
-  (invokeMock as { mockImplementation: (impl: (cmd: string) => unknown) => void })
-    .mockImplementation((cmd: string): unknown => {
-      if (cmd in commands) return commands[cmd];
-      return null;
-    });
+  invokeMock.mockImplementation((cmd: string, args?: unknown): unknown => {
+    if (!(cmd in commands)) return null;
+    const value = commands[cmd];
+    return typeof value === "function" ? (value as TauriMockHandler)(args) : value;
+  });
 }

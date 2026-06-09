@@ -31,11 +31,19 @@ impl GenerationCommandSpec {
         model: &LocalModel,
         job_id: &str,
     ) -> Self {
-        let models_path = Path::new(&config.models_path);
         let outputs_path = Path::new(&config.outputs_path);
+        let output_path = outputs_path.join(format!("{job_id}.wav"));
+        Self::from_request_with_output_path(request, config, model, output_path)
+    }
+    pub fn from_request_with_output_path(
+        request: &GenerationRequest,
+        config: &crate::models::AppConfig,
+        model: &LocalModel,
+        output_path: PathBuf,
+    ) -> Self {
+        let models_path = Path::new(&config.models_path);
         let model_path = models_path.join(&model.filename);
         let tokenizer_path = models_path.join("tokenizer.json");
-        let output_path = outputs_path.join(format!("{job_id}.wav"));
         let mut args: Vec<String> = vec![
             "--model".to_string(),
             model_path.to_string_lossy().to_string(),
@@ -542,6 +550,46 @@ mod tests {
         assert!(!s.args.contains(&"--ref-text".to_string()));
     }
     #[test]
+    fn spec_with_output_path_uses_exact_output() {
+        let r = GenerationRequest {
+            text: "hello".into(),
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+        let c = AppConfig {
+            mode: AppMode::Simple,
+            binary_path: "/b".into(),
+            models_path: "/m".into(),
+            outputs_path: "/o".into(),
+            default_model_id: "s2".into(),
+            default_audio_format: AudioFormat::Wav,
+            cpu_threads: 1,
+            gpu_enabled: true,
+            advanced_args: Default::default(),
+        };
+        let m = LocalModel {
+            id: "s2".into(),
+            quant: ModelQuant::Q6,
+            filename: "model.gguf".into(),
+            display_size: "1".into(),
+            approx_bytes: 1,
+            recommendation: "r".into(),
+            tokenizer_required: false,
+            checksum: None,
+            download_url: None,
+            state: ModelState::Installed,
+        };
+        let output_path = tempfile::TempDir::new().unwrap().path().join("custom-out.wav");
+        let s = GenerationCommandSpec::from_request_with_output_path(&r, &c, &m, output_path.clone());
+        assert_eq!(s.output_path, output_path);
+        let output_idx = s.args.iter().position(|a| a == "--output").unwrap();
+        assert_eq!(s.args[output_idx + 1], output_path.to_string_lossy().to_string());
+    }
+    #[test]
     fn default_pm_idle() {
         let p = ProcessManager::default();
         assert!(p.child.is_none());
@@ -549,5 +597,82 @@ mod tests {
     #[test]
     fn cancel_noop() {
         assert!(!ProcessManager::default().cancel_active());
+    }
+    #[test]
+    #[ignore]
+    fn smoke_real_s2_outputs_wav_when_env_configured() {
+        use std::path::PathBuf;
+        let bin_path = std::env::var("VOF_S2_CPP_BIN")
+            .expect("VOF_S2_CPP_BIN env var must be set for smoke test");
+        let model_path = std::env::var("VOF_S2_MODEL")
+            .expect("VOF_S2_MODEL env var must be set for smoke test");
+        let test_text = std::env::var("VOF_S2_TEST_TEXT")
+            .unwrap_or_else(|_| "Hello from Voice of Fish.".to_string());
+        let model_path = PathBuf::from(&model_path);
+        let models_path = model_path
+            .parent()
+            .expect("VOF_S2_MODEL must have a parent directory");
+        let tokenizer_path = models_path.join("tokenizer.json");
+        assert!(
+            tokenizer_path.is_file(),
+            "tokenizer.json must exist at {} for smoke test",
+            tokenizer_path.display()
+        );
+        let outputs_dir = tempfile::TempDir::new().unwrap();
+        let config = AppConfig {
+            mode: AppMode::Simple,
+            binary_path: bin_path,
+            models_path: models_path.to_string_lossy().to_string(),
+            outputs_path: outputs_dir.path().to_string_lossy().to_string(),
+            default_model_id: "s2".into(),
+            default_audio_format: AudioFormat::Wav,
+            cpu_threads: 1,
+            gpu_enabled: false,
+            advanced_args: Default::default(),
+        };
+        let model = LocalModel {
+            id: "s2".into(),
+            quant: ModelQuant::Q6,
+            filename: model_path.file_name().unwrap().to_string_lossy().to_string(),
+            display_size: "1".into(),
+            approx_bytes: 1,
+            recommendation: "r".into(),
+            tokenizer_required: true,
+            checksum: None,
+            download_url: None,
+            state: ModelState::Installed,
+        };
+        let request = GenerationRequest {
+            text: test_text,
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+        let output_path = outputs_dir.path().join("smoke.wav");
+        let spec = GenerationCommandSpec::from_request_with_output_path(
+            &request,
+            &config,
+            &model,
+            output_path.clone(),
+        );
+        let status = std::process::Command::new(&spec.binary_path)
+            .args(&spec.args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .expect("failed to spawn s2.cpp");
+        assert!(status.success(), "s2.cpp exited with: {:?}", status);
+        assert!(
+            output_path.is_file(),
+            "expected output WAV at {}",
+            output_path.display()
+        );
+        let bytes = std::fs::read(&output_path).expect("failed to read output WAV");
+        assert!(bytes.len() >= 12, "WAV file too short: {} bytes", bytes.len());
+        assert_eq!(&bytes[0..4], b"RIFF");
+        assert_eq!(&bytes[8..12], b"WAVE");
     }
 }

@@ -103,4 +103,11 @@ describe("shared schemas", () => {
     ]);
     expect(STYLE_TAGS).toContain("[professional broadcast tone]");
   });
+  it("defines real model download metadata", () => {
+    for (const model of S2_MODEL_MANIFEST) {
+      expect(model.checksum).toMatch(/^[a-f0-9]{64}$/i);
+      expect(model.downloadUrl?.endsWith(model.filename)).toBe(true);
+      expect(model.approxBytes).toBeGreaterThan(0);
+    }
+  });
 });

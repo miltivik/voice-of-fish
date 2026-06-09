@@ -200,7 +200,7 @@ pub fn read_generation_logs(
 ) -> Vec<GenerationLogLine> {
     let mut manager = match process_manager.lock() {
         Ok(m) => m,
-        Err(_) => return GenerationLogLine::mock_lines(),
+        Err(_) => return vec![],
     };
 
     manager.check_completion();
@@ -819,24 +819,21 @@ pub async fn seed_built_in_voices(
 #[tauri::command(rename_all = "camelCase")]
 pub fn generate_sentences(
     text: String,
-    _language: String,
+    language: String,
     model_id: String,
     voice_preset_id: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<Vec<crate::models::SentenceClip>, String> {
     let cfg = config::load_app_config(&app);
     cfg.validate_executable()?;
-
     let models = downloads::list_local_models(std::path::Path::new(&cfg.models_path));
     let model = models
         .iter()
         .find(|m| m.id == model_id)
         .ok_or_else(|| format!("unknown model id: {model_id}"))?;
-
     if model.state != crate::models::ModelState::Installed {
         return Err(format!("model {model_id} is not installed"));
     }
-
     // Resolve voice preset → prompt-audio + prompt-text
     let (prompt_audio, prompt_text) = if let Some(ref preset_id) = voice_preset_id {
         let presets = presets::list_presets(&cfg.outputs_path);
@@ -848,43 +845,32 @@ pub fn generate_sentences(
     } else {
         (None, None)
     };
-
     let sentences = crate::models::split_sentences(&text);
     if sentences.is_empty() {
         return Err("no sentences found in input text".to_string());
     }
     let outputs_dir = std::path::Path::new(&cfg.outputs_path);
-    let model_path = std::path::Path::new(&cfg.models_path).join(&model.filename);
     let mut clips = Vec::with_capacity(sentences.len());
     let mut elapsed_ms: u64 = 0;
     for (i, sentence) in sentences.iter().enumerate() {
         let output_path = outputs_dir.join(format!("clip_{i}.wav"));
-        let tokenizer_path = std::path::Path::new(&cfg.models_path).join("tokenizer.json");
-        let mut cmd = std::process::Command::new(&cfg.binary_path);
-        cmd.arg("--model")
-            .arg(model_path.to_string_lossy().to_string())
-            .arg("--tokenizer")
-            .arg(tokenizer_path.to_string_lossy().to_string())
-            .arg("--text")
-            .arg(sentence.as_str())
-            .arg("--output")
-            .arg(output_path.to_string_lossy().to_string())
-            .arg("--threads")
-            .arg(cfg.cpu_threads.to_string())
-            .arg("--normalize")
-            .arg("--trim-silence")
-            .arg("--log-level")
-            .arg("error");
-        if !cfg.gpu_enabled {
-            cmd.arg("-v").arg("-1");
-        }
-        if let Some(ref audio) = prompt_audio {
-            cmd.arg("--prompt-audio").arg(audio);
-        }
-        if let Some(ref text) = prompt_text {
-            cmd.arg("--prompt-text").arg(text);
-        }
-        let mut child = cmd
+        let sentence_request = GenerationRequest {
+            text: sentence.clone(),
+            language: language.clone(),
+            model_id: model_id.clone(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: prompt_audio.clone(),
+            reference_text: prompt_text.clone(),
+        };
+        let spec = crate::process::GenerationCommandSpec::from_request_with_output_path(
+            &sentence_request,
+            &cfg,
+            model,
+            output_path,
+        );
+        let mut child = std::process::Command::new(&spec.binary_path)
+            .args(&spec.args)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
@@ -899,12 +885,12 @@ pub fn generate_sentences(
                 i
             ));
         }
-        let duration_ms = wav_duration_ms(&output_path)?;
+        let duration_ms = wav_duration_ms(&spec.output_path)?;
         clips.push(crate::models::SentenceClip {
             text: sentence.clone(),
             start_ms: elapsed_ms,
             end_ms: elapsed_ms + duration_ms,
-            wav_path: output_path.to_string_lossy().to_string(),
+            wav_path: spec.output_path.to_string_lossy().to_string(),
         });
         elapsed_ms += duration_ms;
     }
