@@ -20,7 +20,8 @@ pub fn list_presets(outputs_path: &str) -> Vec<VoicePreset> {
     serde_json::from_str(&data).unwrap_or_default()
 }
 
-/// Saves a voice preset, validates audio extension, and persists to disk.
+/// Saves a voice preset, validates audio extension AND reference_audio_path
+/// scope, and persists to disk.
 pub fn save_preset(
     outputs_path: &str,
     preset: &VoicePreset,
@@ -39,6 +40,14 @@ pub fn save_preset(
         ));
     }
 
+    // Validate reference_audio_path is within outputs_path (C-5).
+    let mut validated = preset.clone();
+    if let Some(ref audio_path) = preset.reference_audio_path {
+        let canonical =
+            crate::output_paths::validate_within_outputs(outputs_path, audio_path)?;
+        validated.reference_audio_path = Some(canonical.to_string_lossy().to_string());
+    }
+
     let path = presets_path(outputs_path);
 
     if let Some(parent) = path.parent() {
@@ -48,11 +57,13 @@ pub fn save_preset(
 
     let mut presets = list_presets(outputs_path);
 
+    let id = validated.id.clone();
+
     // Upsert: replace existing preset with same id, otherwise push.
-    if let Some(existing) = presets.iter_mut().find(|p| p.id == preset.id) {
-        *existing = preset.clone();
+    if let Some(existing) = presets.iter_mut().find(|p| p.id == id) {
+        *existing = validated;
     } else {
-        presets.push(preset.clone());
+        presets.push(validated);
     }
 
     let json = serde_json::to_string_pretty(&presets)
@@ -61,8 +72,31 @@ pub fn save_preset(
     std::fs::write(&path, json)
         .map_err(|e| format!("failed to write presets file: {e}"))?;
 
-    Ok(preset.clone())
+    // Return the persisted preset from the in-memory vec we just wrote.
+    Ok(presets.into_iter().find(|p| p.id == id).expect("just-inserted"))
 }
+/// Looks up a preset by ID and validates that its `reference_audio_path`
+/// is within `outputs_path`. Returns `(reference_audio_path, reference_text)`
+/// on success so callers can safely merge into a generation request.
+pub fn resolve_preset_reference(
+    outputs_path: &str,
+    preset_id: &str,
+) -> Result<Option<(String, String)>, String> {
+    let presets = list_presets(outputs_path);
+    let Some(preset) = presets.iter().find(|p| p.id == preset_id) else {
+        return Ok(None);
+    };
+    let Some(ref audio_path) = preset.reference_audio_path else {
+        return Ok(None);
+    };
+    let canonical =
+        crate::output_paths::validate_within_outputs(outputs_path, audio_path)?;
+    Ok(Some((
+        canonical.to_string_lossy().to_string(),
+        preset.reference_text.clone(),
+    )))
+}
+
 
 /// Deletes a voice preset by ID.
 pub fn delete_preset(outputs_path: &str, id: &str) -> Result<bool, String> {
@@ -174,5 +208,96 @@ mod tests {
         let result = save_preset(outputs, &preset);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("invalid audio extension"));
+    }
+
+    #[test]
+    fn save_preset_validates_reference_audio_within_outputs() {
+        let dir = TempDir::new().unwrap();
+        let outputs = dir.path().to_str().unwrap();
+        let audio_file = dir.path().join("ref.wav");
+        std::fs::write(&audio_file, b"RIFF____WAVE").unwrap();
+
+        let mut preset = make_preset("p1", "Good");
+        preset.reference_file_name = "ref.wav".to_string();
+        preset.reference_audio_path = Some(audio_file.to_string_lossy().to_string());
+
+        let result = save_preset(outputs, &preset);
+        assert!(result.is_ok(), "should accept reference within outputs: {:?}", result.err());
+
+        let saved = list_presets(outputs);
+        assert_eq!(saved.len(), 1);
+        assert!(saved[0].reference_audio_path.is_some());
+    }
+
+    #[test]
+    fn save_preset_rejects_reference_audio_outside_outputs() {
+        let dir = TempDir::new().unwrap();
+        let outside = TempDir::new().unwrap();
+        let audio_file = outside.path().join("ref.wav");
+        std::fs::write(&audio_file, b"RIFF____WAVE").unwrap();
+
+        let mut preset = make_preset("p1", "Bad");
+        preset.reference_file_name = "ref.wav".to_string();
+        preset.reference_audio_path = Some(audio_file.to_string_lossy().to_string());
+
+        let result = save_preset(dir.path().to_str().unwrap(), &preset);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("escapes outputs_path"));
+    }
+
+    #[test]
+    fn resolve_preference_reference_returns_validated_path() {
+        let dir = TempDir::new().unwrap();
+        let outputs = dir.path().to_str().unwrap();
+        let audio_file = dir.path().join("ref.wav");
+        std::fs::write(&audio_file, b"RIFF____WAVE").unwrap();
+
+        let mut preset = make_preset("p1", "My Voice");
+        preset.reference_file_name = "ref.wav".to_string();
+        preset.reference_audio_path = Some(audio_file.to_string_lossy().to_string());
+        save_preset(outputs, &preset).unwrap();
+
+        let result = resolve_preset_reference(outputs, "p1").unwrap();
+        assert!(result.is_some());
+        let (path, text) = result.unwrap();
+        assert!(path.contains("ref.wav"));
+        assert_eq!(text, "Hello world");
+    }
+
+    #[test]
+    fn resolve_preset_reference_returns_none_for_unknown() {
+        let dir = TempDir::new().unwrap();
+        let outputs = dir.path().to_str().unwrap();
+
+        let result = resolve_preset_reference(outputs, "nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn resolve_preset_reference_rejects_outside_path() {
+        // Save a preset with a stale out-of-scope path.
+        let dir = TempDir::new().unwrap();
+        let outputs = dir.path().to_str().unwrap();
+        // Directly write a bad preset to disk to simulate corrupted data.
+        let preset = VoicePreset {
+            id: "bad".to_string(),
+            name: "Bad".to_string(),
+            language: "en".to_string(),
+            reference_text: "Hi".to_string(),
+            reference_file_name: "ref.wav".to_string(),
+            reference_audio_path: Some("/etc/passwd".to_string()),
+            notes: None,
+            gender: None,
+            duration_seconds: None,
+        };
+        let path = std::path::PathBuf::from(outputs)
+            .join(".voice-of-fish")
+            .join("presets.json");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, serde_json::to_string_pretty(&[preset]).unwrap()).unwrap();
+
+        let result = resolve_preset_reference(outputs, "bad");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("escapes outputs_path"));
     }
 }

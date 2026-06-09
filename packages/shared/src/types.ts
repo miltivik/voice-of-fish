@@ -76,10 +76,10 @@ export interface HistoryRecord {
   id: string;
   text: string;
   modelId: string;
-  voiceName: string;
+  voiceName?: string;
   outputPath: string;
   createdAt: string;
-  durationSeconds: number;
+  durationSeconds?: number;
   status: Exclude<GenerationStatus, "idle">;
 }
 
@@ -107,9 +107,9 @@ export interface SentenceClip {
   wavPath: string;
 }
 
-export type VoiceGender = "female" | "male";
+export type AdvancedArgValue = string | number | boolean;
 
-export interface BuiltInVoice {
+export type VoiceGender = "female" | "male";
   id: string;
   name: string;
   gender: VoiceGender;
@@ -121,6 +121,8 @@ export interface BuiltInVoice {
   referenceFileName: string;
   /** Approximate duration of the reference audio in seconds. */
   durationSeconds: number;
+
+}
 
 export interface SeedResult {
   voiceId: string;

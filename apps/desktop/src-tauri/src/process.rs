@@ -325,7 +325,18 @@ impl ProcessManager {
                     true
                 }
                 Ok(None) => false,
-                Err(_) => false,
+                Err(e) => {
+                    // try_wait can fail if the child process is in a bad state
+                    // (e.g., already reaped by another call). Log and force-finish
+                    // the job so it doesn't get stuck in "Generating" forever.
+                    eprintln!(
+                        "[ProcessManager] try_wait failed (possible \
+                         double-wait or zombie process): {e}. Forcing completion."
+                    );
+                    self.child = None;
+                    self.finish(None);
+                    true
+                }
             }
         } else {
             true

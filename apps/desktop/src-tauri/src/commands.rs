@@ -90,21 +90,26 @@ pub fn run_generation(
     }
 
 
-    // Resolve voice preset → reference audio path + text if not already provided
+    // Resolve voice preset → reference audio path + text if not already provided.
+    // The helper validates that reference_audio_path stays within outputs_path.
     let mut resolved_request = request.clone();
     if resolved_request.voice_preset_id.is_some()
         && resolved_request.reference_audio_path.is_none()
     {
-        let presets = presets::list_presets(&cfg.outputs_path);
-        if let Some(preset) = presets
-            .iter()
-            .find(|p| Some(&p.id) == resolved_request.voice_preset_id.as_ref())
-        {
-            resolved_request.reference_audio_path = preset.reference_audio_path.clone();
+        if let Some((audio_path, ref_text)) = presets::resolve_preset_reference(
+            &cfg.outputs_path,
+            resolved_request.voice_preset_id.as_ref().unwrap(),
+        )? {
+            resolved_request.reference_audio_path = Some(audio_path);
             if resolved_request.reference_text.is_none() {
-                resolved_request.reference_text = Some(preset.reference_text.clone());
+                resolved_request.reference_text = Some(ref_text);
             }
         }
+    }
+    // Re-validate the final resolved path (whether from request or preset)
+    // to close the gap where a persisted preset could have an out-of-scope path.
+    if let Some(ref path) = resolved_request.reference_audio_path {
+        crate::output_paths::validate_within_outputs(&cfg.outputs_path, path)?;
     }
     let job_id = format!("job-{}", chrono::Utc::now().timestamp_millis());
     let spec = crate::process::GenerationCommandSpec::from_request(
@@ -218,67 +223,17 @@ pub fn read_generation_logs(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn open_output_folder(path: String) -> bool {
-    if path.is_empty() {
-        return false;
-    }
-    let Ok(canonical) = std::fs::canonicalize(&path) else {
-        return false;
-    };
-    if !canonical.is_dir() {
-        return false;
-    }
-    #[cfg(target_os = "linux")]
-    {
-        std::process::Command::new("xdg-open")
-            .arg(&canonical)
-            .spawn()
-            .ok();
-    }
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open")
-            .arg(&canonical)
-            .spawn()
-            .ok();
-    }
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("cmd")
-            .args(["/c", "start", "", &canonical.to_string_lossy()])
-            .spawn()
-            .ok();
-    }
-    true
+pub fn open_output_folder(path: String, app: tauri::AppHandle) -> Result<(), String> {
+    let cfg = config::load_app_config(&app);
+    cfg.validate_paths()?;
+    crate::output_paths::open_output_folder(&cfg.outputs_path, &path)
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn open_file_path(path: String) -> Result<(), String> {
-    if path.is_empty() {
-        return Err("path is empty".to_string());
-    }
-    #[cfg(target_os = "linux")]
-    {
-        std::process::Command::new("xdg-open")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| format!("failed to open file: {e}"))?;
-    }
-    #[cfg(target_os = "macos")]
-    {
-        std::process::Command::new("open")
-            .arg(&path)
-            .spawn()
-            .map_err(|e| format!("failed to open file: {e}"))?;
-    }
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("cmd")
-            .args(["/c", "start", "", &path])
-            .spawn()
-            .map_err(|e| format!("failed to open file: {e}"))?;
-    }
-    Ok(())
+pub fn open_file_path(path: String, app: tauri::AppHandle) -> Result<(), String> {
+    let cfg = config::load_app_config(&app);
+    cfg.validate_paths()?;
+    crate::output_paths::open_file_path(&cfg.outputs_path, &path)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -420,132 +375,31 @@ pub fn delete_voice_preset(
 pub fn export_editor_bundle(
     clips: Vec<crate::models::SentenceClip>,
     target_dir: String,
+    app: tauri::AppHandle,
 ) -> Result<String, String> {
-    use std::io::Write;
-    let target = std::path::Path::new(&target_dir);
-    std::fs::create_dir_all(target)
-        .map_err(|e| format!("failed to create export folder: {e}"))?;
-
-    let mut count = 0u32;
-
-    // Copy WAV files
-    for clip in &clips {
-        let src = std::path::Path::new(&clip.wav_path);
-        if src.is_file() {
-            let dest_name = src.file_name().unwrap_or_default();
-            let dest = target.join(dest_name);
-            std::fs::copy(src, &dest)
-                .map_err(|e| format!("failed to copy {}: {e}", clip.wav_path))?;
-            count += 1;
-        }
-    }
-
-    // Generate SRT
-    let srt_path = target.join("subtitles.srt");
-    let mut srt = std::fs::File::create(&srt_path)
-        .map_err(|e| format!("failed to create SRT: {e}"))?;
-    for (i, clip) in clips.iter().enumerate() {
-        let start = format_srt_time(clip.start_ms);
-        let end = format_srt_time(clip.end_ms);
-        let text = split_subtitle_lines(&clip.text, 42);
-        writeln!(srt, "{}", i + 1).map_err(|e| format!("write error: {e}"))?;
-        writeln!(srt, "{start} --> {end}").map_err(|e| format!("write error: {e}"))?;
-        writeln!(srt, "{text}").map_err(|e| format!("write error: {e}"))?;
-        writeln!(srt).map_err(|e| format!("write error: {e}"))?;
-    }
-
-    // Generate Kdenlive MLT XML project
-    let kdenlive_xml = generate_kdenlive_xml(&clips);
-    std::fs::write(target.join("project.kdenlive"), &kdenlive_xml)
-        .map_err(|e| format!("failed to write project.kdenlive: {e}"))?;
-    let script_src = std::path::Path::new("resolve_import.py");
-    if script_src.is_file() {
-        std::fs::copy(script_src, target.join("resolve_import.py"))
-            .map_err(|e| format!("failed to copy script: {e}"))?;
-    }
-
-    Ok(format!("Exported {} clip(s) to {}", count, target_dir))
+    let cfg = config::load_app_config(&app);
+    cfg.validate_paths()?;
+    crate::output_paths::export_editor_bundle(&cfg.outputs_path, &clips, &target_dir)
 }
 
-fn generate_kdenlive_xml(clips: &[crate::models::SentenceClip]) -> String {
-    let mut xml = String::new();
-    xml.push_str(r#"<?xml version="1.0" encoding="utf-8"?>
-"#);
-    xml.push_str(r#"<mlt LC_NUMERIC="C" version="7.0.0">
-"#);
-    xml.push_str(r#"  <profile width="1920" height="1080" frame_rate_num="25" frame_rate_den="1" display_aspect_num="16" display_aspect_den="9" sample_aspect_num="1" sample_aspect_den="1" colorspace="709" progressive="1"/>
-"#);
-    xml.push_str(&format!(
-        r#"  <tractor id="tractor0" title="Voice of Fish">
-    <track producer="playlist0"/>
-  </tractor>
-  <playlist id="playlist0">
-"#
-    ));
-    for (i, clip) in clips.iter().enumerate() {
-        let in_frames = clip.start_ms * 25 / 1000;
-        let out_frames = clip.end_ms * 25 / 1000;
-        xml.push_str(&format!(
-            r#"    <entry producer="producer{i}" in="{in_frames}" out="{out_frames}"/>
-"#
-        ));
+fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| format!("failed to open WAV: {e}"))?;
+    use std::io::Read;
+    let mut header = [0u8; 44];
+    file.read_exact(&mut header)
+        .map_err(|e| format!("failed to read WAV header: {e}"))?;
+    let byte_rate = u32::from_le_bytes([header[28], header[29], header[30], header[31]]);
+    let data_size = u32::from_le_bytes([header[40], header[41], header[42], header[43]]);
+
+    if byte_rate == 0 {
+        return Err("WAV byte rate is zero".to_string());
     }
-    xml.push_str(r#"  </playlist>
-"#);
-    for (i, clip) in clips.iter().enumerate() {
-        let out_frames = (clip.end_ms - clip.start_ms) * 25 / 1000;
-        xml.push_str(&format!(
-            r#"  <producer id="producer{i}" in="0" out="{out_frames}">
-    <property name="resource">{}</property>
-    <property name="mlt_type">audio</property>
-  </producer>
-"#,
-            clip.wav_path
-        ));
-    }
-    xml.push_str("</mlt>\n");
-    xml
+
+    let duration_secs = data_size as f64 / byte_rate as f64;
+    Ok((duration_secs * 1000.0) as u64)
 }
 
-fn split_subtitle_lines(text: &str, max_line: usize) -> String {
-    let text = text.trim();
-    if text.len() <= max_line {
-        return text.to_string();
-    }
-
-    // Find split point near max_line at a word boundary
-    let mut split_at = max_line;
-    while split_at > 0 && !text.as_bytes().get(split_at).map_or(true, |&b| b == b' ') {
-        split_at -= 1;
-    }
-
-    // If no space found, fall back to hard split
-    if split_at == 0 {
-        split_at = max_line;
-    }
-
-    let first = text[..split_at].trim();
-    let second = text[split_at..].trim();
-
-    // If second line still too long, truncate with ellipsis
-    let second = if second.len() > max_line {
-        let mut trunc = second[..max_line].to_string();
-        trunc.push_str("…");
-        trunc
-    } else {
-        second.to_string()
-    };
-
-    format!("{first}\n{second}")
-}
-
-fn format_srt_time(ms: u64) -> String {
-    let h = ms / 3_600_000;
-    let m = (ms % 3_600_000) / 60_000;
-    let s = (ms % 60_000) / 1000;
-    let millis = ms % 1000;
-    format!("{:02}:{:02}:{:02},{:03}", h, m, s, millis)
-}
 
 #[cfg(test)]
 mod tests {
@@ -553,6 +407,7 @@ mod tests {
 
     #[test]
     fn check_binary_exists_empty_string() {
+        assert!(!check_binary_exists("".to_string()));
     }
 
     #[test]
@@ -646,66 +501,22 @@ mod tests {
     fn check_directory_exists_empty_string() {
         assert!(!check_directory_exists("".to_string()));
     }
-
-    #[test]
-    fn open_output_folder_empty_string() {
-        assert!(!open_output_folder("".to_string()));
-    }
-
-    #[test]
-    fn open_output_folder_nonexistent_path() {
-        assert!(!open_output_folder("/nonexistent/folder/should/fail".to_string()));
-    }
-
-    #[test]
-    fn open_output_folder_temp_dir() {
-        let temp_dir = std::env::temp_dir();
-        let test_dir = temp_dir.join("vof_test_folder_check");
-        std::fs::create_dir_all(&test_dir).ok();
-
-        let path_str = test_dir.to_string_lossy().to_string();
-        assert!(open_output_folder(path_str.clone()));
-
-        std::fs::remove_dir(&test_dir).ok();
-    }
 }
 #[cfg(test)]
 mod export_tests {
-    use super::*;
     use crate::models::SentenceClip;
-    use std::io::Read;
-
-    #[test]
-    fn format_srt_time_midnight() {
-        assert_eq!(format_srt_time(0), "00:00:00,000");
-    }
-
-    #[test]
-    fn format_srt_time_milliseconds() {
-        assert_eq!(format_srt_time(1500), "00:00:01,500");
-    }
-
-    #[test]
-    fn format_srt_time_seconds() {
-        assert_eq!(format_srt_time(65000), "00:01:05,000");
-    }
-
-    #[test]
-    fn format_srt_time_hour() {
-        assert_eq!(format_srt_time(3_725_000), "01:02:05,000");
-    }
 
     #[test]
     fn export_creates_srt_and_copies_wavs() {
-        let temp_dir = std::env::temp_dir().join("vof_export_test");
-        let clips_dir = std::env::temp_dir().join("vof_clips_test");
-        std::fs::create_dir_all(&clips_dir).ok();
+        let outputs_root = std::env::temp_dir().join("vof_export_outputs");
+        let clips_dir = outputs_root.join("clips");
+        std::fs::create_dir_all(&clips_dir).unwrap();
 
         // Create mock WAV files (valid RIFF headers)
-        for i in 0..2 {
+        for i in 0..2u32 {
             let mut wav = Vec::new();
             wav.extend(b"RIFF");
-            wav.extend(&44u32.to_le_bytes()); // file size
+            wav.extend(&44u32.to_le_bytes());
             wav.extend(b"WAVE");
             wav.extend(b"fmt ");
             wav.extend(&16u32.to_le_bytes());
@@ -717,9 +528,8 @@ mod export_tests {
             wav.extend(&32u16.to_le_bytes());
             wav.extend(b"data");
             wav.extend(&0u32.to_le_bytes());
-            std::fs::write(clips_dir.join(format!("clip_{i}.wav")), &wav).ok();
+            std::fs::write(clips_dir.join(format!("clip_{i}.wav")), &wav).unwrap();
         }
-
         let clips = vec![
             SentenceClip {
                 text: "Hello.".to_string(),
@@ -735,71 +545,43 @@ mod export_tests {
             },
         ];
 
-        let result = export_editor_bundle(clips, temp_dir.to_string_lossy().to_string());
+        let target = std::env::temp_dir().join("vof_export_target");
+        let result = crate::output_paths::export_editor_bundle(
+            &outputs_root.to_string_lossy(),
+            &clips,
+            &target.to_string_lossy(),
+        );
         assert!(result.is_ok(), "export failed: {:?}", result.err());
 
         // Verify SRT content
-        let srt_path = temp_dir.join("subtitles.srt");
-        assert!(srt_path.exists());
-        let mut srt_content = String::new();
-        std::fs::File::open(&srt_path)
-            .unwrap()
-            .read_to_string(&mut srt_content)
-            .ok();
+        let srt_content = std::fs::read_to_string(target.join("subtitles.srt")).unwrap();
         assert!(srt_content.contains("00:00:00,000 --> 00:00:01,500"));
         assert!(srt_content.contains("00:00:01,500 --> 00:00:03,000"));
         assert!(srt_content.contains("Hello."));
         assert!(srt_content.contains("World!"));
 
-
         // Verify Kdenlive project
-        let kdenlive_path = temp_dir.join("project.kdenlive");
-        assert!(kdenlive_path.exists());
-        let mut xml_content = String::new();
-        std::fs::File::open(&kdenlive_path)
-            .unwrap()
-            .read_to_string(&mut xml_content)
-            .ok();
+        let xml_content = std::fs::read_to_string(target.join("project.kdenlive")).unwrap();
         assert!(xml_content.contains(r#"<mlt LC_NUMERIC="C""#));
         assert!(xml_content.contains(r#"producer="producer0""#));
         assert!(xml_content.contains(r#"producer="producer1""#));
 
         // Verify WAV copies
-        assert!(temp_dir.join("clip_0.wav").exists());
-        assert!(temp_dir.join("clip_1.wav").exists());
+        assert!(target.join("clip_0.wav").exists());
+        assert!(target.join("clip_1.wav").exists());
 
-        // Cleanup
-        std::fs::remove_dir_all(&temp_dir).ok();
-        std::fs::remove_dir_all(&clips_dir).ok();
+        std::fs::remove_dir_all(&outputs_root).ok();
+        std::fs::remove_dir_all(&target).ok();
     }
-}
-fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
-    let mut file = std::fs::File::open(path)
-        .map_err(|e| format!("failed to open WAV: {e}"))?;
-    use std::io::Read;
-    let mut header = [0u8; 44];
-    file.read_exact(&mut header)
-        .map_err(|e| format!("failed to read WAV header: {e}"))?;
-    let byte_rate = u32::from_le_bytes([header[28], header[29], header[30], header[31]]);
-    let data_size = u32::from_le_bytes([header[40], header[41], header[42], header[43]]);
-
-    if byte_rate == 0 {
-        return Err("WAV byte rate is zero".to_string());
-    }
-
-    let duration_secs = data_size as f64 / byte_rate as f64;
-    Ok((duration_secs * 1000.0) as u64)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn seed_built_in_voices(
-    outputs_path: String,
-    _app: tauri::AppHandle,
+    app: tauri::AppHandle,
 ) -> Result<Vec<serde_json::Value>, String> {
-    if outputs_path.is_empty() {
-        return Err("outputs path is required".into());
-    }
-    let results = built_in_voices::seed_built_in_voices(&outputs_path);
+    let cfg = config::load_app_config(&app);
+    cfg.validate_paths()?;
+    let results = built_in_voices::seed_built_in_voices(&cfg.outputs_path);
     let values: Vec<serde_json::Value> = results
         .into_iter()
         .map(|r| {
@@ -814,8 +596,6 @@ pub async fn seed_built_in_voices(
     Ok(values)
 }
 
-/// Generate audio for each sentence in the input text, returning clips with
-/// cumulative timestamps suitable for SRT/subtitle export.
 #[tauri::command(rename_all = "camelCase")]
 pub fn generate_sentences(
     text: String,
@@ -834,14 +614,17 @@ pub fn generate_sentences(
     if model.state != crate::models::ModelState::Installed {
         return Err(format!("model {model_id} is not installed"));
     }
-    // Resolve voice preset → prompt-audio + prompt-text
+    // Resolve voice preset → prompt-audio + prompt-text, with output-root
+    // validation to prevent arbitrary file access via preset paths.
     let (prompt_audio, prompt_text) = if let Some(ref preset_id) = voice_preset_id {
-        let presets = presets::list_presets(&cfg.outputs_path);
-        presets
-            .iter()
-            .find(|p| p.id == *preset_id)
-            .map(|p| (p.reference_audio_path.clone(), Some(p.reference_text.clone())))
-            .unwrap_or((None, None))
+        if let Some((audio_path, ref_text)) = presets::resolve_preset_reference(
+            &cfg.outputs_path,
+            preset_id,
+        )? {
+            (Some(audio_path), Some(ref_text))
+        } else {
+            (None, None)
+        }
     } else {
         (None, None)
     };
