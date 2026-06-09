@@ -1,9 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  insertTagAtSelection,
-  getActiveQuery,
-  filterTags,
-} from "@/lib/tag-editor";
+import { getActiveQuery, filterTags } from "@/lib/tag-editor";
 
 interface TagAutocompleteProps {
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;

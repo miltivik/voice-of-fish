@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { SentenceClip } from "@voice-of-fish/shared";
 import { toast } from "sonner";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { studioClient, pickFolderPath } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +40,59 @@ function splitSubtitleLines(text: string, maxLine = 42): string {
     })
     .join("\n");
 }
+function ClipItem({
+  clip,
+  i,
+  duration,
+  widthPercent,
+  onUpdateClipText,
+  onPlayAudio,
+}: {
+  clip: SentenceClip;
+  i: number;
+  duration: number;
+  widthPercent: number;
+  totalDuration: number;
+  onUpdateClipText: (index: number, text: string) => void;
+  onPlayAudio: (wavPath: string) => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-3 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2"
+    >
+      <span className="w-6 text-center text-xs tabular-nums text-concrete-300">{i + 1}</span>
+      <div className="min-w-0 flex-1">
+        <input
+          value={clip.text}
+          onChange={(e) => onUpdateClipText(i, e.target.value)}
+          className="w-full truncate bg-transparent text-sm text-concrete-50 outline-none"
+          aria-label={`Edit subtitle ${i + 1}`}
+        />
+        <p className="mt-0.5 text-xs text-concrete-300">
+          {formatTime(clip.startMs)} → {formatTime(clip.endMs)}
+          {" · "}
+          {duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`}
+        </p>
+        <button
+          type="button"
+          onClick={() => onPlayAudio(clip.wavPath)}
+          className="shrink-0 rounded-brutal px-2 py-1 text-xs font-medium text-concrete-300 transition-colors hover:bg-glass-heavy hover:text-concrete-50"
+          title="Play clip"
+        >
+          {"▶"}
+        </button>
+        <div
+          className="h-2 rounded-full bg-electric/30"
+          style={{ width: `${widthPercent}%`, maxWidth: 120 }}
+        >
+          <div className="h-full rounded-full bg-electric" style={{ width: "100%" }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 
 export function EditorPage() {
   const [script, setScript] = useState("");
@@ -46,7 +100,34 @@ export function EditorPage() {
   const [modelId, setModelId] = useState("s2-q6");
   const [voicePresetId, setVoicePresetId] = useState("");
   const [clips, setClips] = useState<SentenceClip[]>([]);
+  const [regenKey, setRegenKey] = useState(0);
 
+  // Cleanup audio on unmount.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  function playClipAudio(wavPath: string) {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      const url = convertFileSrc(wavPath);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.play().catch(() => {
+        toast.error("Cannot play audio — file may be missing");
+      });
+    } catch {
+      toast.error("Cannot load audio file");
+    }
+  }
   const models = useQuery({
     queryKey: ["models"],
     queryFn: studioClient.listLocalModels,
@@ -66,6 +147,7 @@ export function EditorPage() {
       studioClient.generateSentences(script, language, modelId, voicePresetId || undefined),
     onSuccess: (data) => {
       setClips(data);
+      setRegenKey((k) => k + 1);
       toast.success(`Generated ${data.length} clip(s)`);
     },
     onError: (error) => {
@@ -194,48 +276,21 @@ export function EditorPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             {clips.map((clip, i) => {
-              const duration = clip.endMs - clip.startMs;
-              const widthPercent = totalDuration > 0
-                ? Math.max((duration / totalDuration) * 100, 2)
-                : 100 / clips.length;
-
               return (
-                <div
-                  key={clip.wavPath}
-                  className="flex items-center gap-3 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2"
-                >
-                  <span className="w-6 text-center text-xs tabular-nums text-concrete-300">{i + 1}</span>
-                  <div className="min-w-0 flex-1">
-                    <input
-                      value={clip.text}
-                      onChange={(e) => updateClipText(i, e.target.value)}
-                      className="w-full truncate bg-transparent text-sm text-concrete-50 outline-none"
-                      aria-label={`Edit subtitle ${i + 1}`}
-                    />
-                    <p className="mt-0.5 text-xs text-concrete-300">
-                      {formatTime(clip.startMs)} → {formatTime(clip.endMs)}
-                      {" · "}
-                      {duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const audio = new Audio(clip.wavPath);
-                      audio.play().catch(() => {});
-                    }}
-                    className="shrink-0 rounded-brutal px-2 py-1 text-xs font-medium text-concrete-300 transition-colors hover:bg-glass-heavy hover:text-concrete-50"
-                    title="Play clip"
-                  >
-                    {"▶"}
-                  </button>
-                  <div
-                    className="h-2 rounded-full bg-electric/30"
-                    style={{ width: `${widthPercent}%`, maxWidth: 120 }}
-                  >
-                    <div className="h-full rounded-full bg-electric" style={{ width: "100%" }} />
-                  </div>
-                </div>
+                <ClipItem
+                  key={`${regenKey}-${clip.wavPath}-${i}`}
+                  clip={clip}
+                  i={i}
+                  duration={clip.endMs - clip.startMs}
+                  widthPercent={
+                    totalDuration > 0
+                      ? Math.max(((clip.endMs - clip.startMs) / totalDuration) * 100, 2)
+                      : 100 / clips.length
+                  }
+                  totalDuration={totalDuration}
+                  onUpdateClipText={updateClipText}
+                  onPlayAudio={playClipAudio}
+                />
               );
             })}
           </CardContent>

@@ -10,7 +10,6 @@ import type {
   HistoryRecord,
   ModelManifestEntry,
   ProcessLogLine,
-  SeedResult,
   SentenceClip,
   SystemInfo,
   VoicePreset,
@@ -123,15 +122,15 @@ export const studioClient = {
   cancelGeneration: (jobId: string) => invoke<boolean>("cancel_generation", { jobId }),
   readGenerationLogs: (jobId?: string) => invoke<ProcessLogLine[]>("read_generation_logs", { jobId }),
   getActiveJob: () => invoke<GenerationJob | null>("get_active_job"),
-  openOutputFolder: (path: string) => invoke<boolean>("open_output_folder", { path }),
-  openOutputFile: (path: string) => invoke("open_file_path", { path }),
+  openOutputFolder: (path: string) => invoke<void>("open_output_folder", { path }),
+  openOutputFile: (path: string) => invoke<void>("open_file_path", { path }),
   listGenerationHistory: (limit?: number) => invoke<HistoryRecord[]>("list_generation_history", { limit }),
   listVoicePresets: () => invoke<VoicePreset[]>("list_voice_presets"),
   saveVoicePreset: (preset: VoicePreset) => invoke<VoicePreset>("save_voice_preset", { preset }),
   deleteVoicePreset: (id: string) => invoke<boolean>("delete_voice_preset", { id }),
   generateSentences: (text: string, language: string, modelId: string, voicePresetId?: string) =>
     invoke<SentenceClip[]>("generate_sentences", { text, language, modelId, voicePresetId }),
-  seedBuiltInVoices: (outputsPath: string) => invoke<SeedResult[]>("seed_built_in_voices", { outputsPath }),
+  seedBuiltInVoices: () => invoke("seed_built_in_voices"),
   exportEditorBundle: (clips: SentenceClip[], targetDir: string) =>
     invoke<string>("export_editor_bundle", { clips, targetDir }),
 };

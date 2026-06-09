@@ -42,7 +42,7 @@ export function RecentGenerations({
             {item.modelId}
             {item.durationSeconds != null &&
               ` \u00b7 ${item.durationSeconds}s`}{" "}
-            \u00b7 {item.outputPath}
+            {"·"} {item.outputPath}
           </p>
         </article>
       ))}

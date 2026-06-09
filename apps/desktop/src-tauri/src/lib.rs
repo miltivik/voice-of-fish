@@ -1,3 +1,4 @@
+pub mod output_paths;
 pub mod commands;
 pub mod config;
 pub mod diagnostics;

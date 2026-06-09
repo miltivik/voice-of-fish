@@ -37,16 +37,12 @@ pub enum ModelQuant {
 #[serde(rename_all = "kebab-case")]
 pub enum ModelState {
     NotInstalled,
-    Downloading,
     Installed,
-    Error,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum GenerationStatus {
-    Idle,
-    Preparing,
     Cancelled,
     Generating,
     Completed,

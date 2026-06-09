@@ -3,7 +3,6 @@ import { useState, useEffect, type ReactNode } from "react";
 import { HashRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import { studioClient } from "@/lib/tauri";
-import { useAppStore } from "@/stores/useAppStore";
 interface AppProvidersProps {
   children: ReactNode;
 }
@@ -14,10 +13,8 @@ export function AppProviders({ children }: AppProvidersProps) {
     let cancelled = false;
     (async () => {
       try {
-        const config = await studioClient.getAppConfig();
-        if (!config || !config.outputsPath) return;
         if (cancelled) return;
-        const results = await studioClient.seedBuiltInVoices(config.outputsPath);
+        const results = await studioClient.seedBuiltInVoices();
         if (cancelled || !results) return;
         const downloaded = results.filter((r) => r.success && !r.error).length;
         const skipped = results.filter((r) => r.success && r.error).length;

@@ -15,12 +15,9 @@ fn is_placeholder_checksum(checksum: &str) -> bool {
     clean.len() != 64 || !clean.chars().all(|c| c.is_ascii_hexdigit())
 }
 
-pub fn model_catalog() -> Vec<LocalModel> {
-    LocalModel::manifest()
-}
 
 pub fn list_local_models(models_path: &Path) -> Vec<LocalModel> {
-    let mut models = model_catalog();
+    let mut models = LocalModel::manifest();
     for model in &mut models {
         model.state = if models_path.join(&model.filename).is_file() {
             ModelState::Installed
@@ -32,7 +29,7 @@ pub fn list_local_models(models_path: &Path) -> Vec<LocalModel> {
 }
 
 pub fn delete_model_file(models_path: &Path, model_id: &str) -> Result<Vec<LocalModel>, String> {
-    let entry = model_catalog()
+    let entry = LocalModel::manifest()
         .into_iter()
         .find(|m| m.id == model_id)
         .ok_or_else(|| format!("unknown model id: {model_id}"))?;
@@ -40,15 +37,7 @@ pub fn delete_model_file(models_path: &Path, model_id: &str) -> Result<Vec<Local
     let models_path = models_path
         .canonicalize()
         .map_err(|e| format!("failed to resolve models path: {e}"))?;
-
     let target = models_path.join(&entry.filename);
-    if !target.starts_with(&models_path) {
-        // Defensive: canonicalized path must stay within models dir.
-        let resolved = target.canonicalize().unwrap_or_else(|_| target.clone());
-        if !resolved.starts_with(&models_path) {
-            return Err("delete path escapes models directory".to_string());
-        }
-    }
 
     if target.is_file() {
         std::fs::remove_file(&target)
@@ -63,7 +52,7 @@ pub fn download_model_file(
     model_id: &str,
     app: Option<&tauri::AppHandle>,
 ) -> Result<Vec<LocalModel>, String> {
-    let entry = model_catalog()
+    let entry = LocalModel::manifest()
         .into_iter()
         .find(|m| m.id == model_id)
         .ok_or_else(|| format!("unknown model id: {model_id}"))?;
@@ -329,7 +318,7 @@ mod tests {
     }
     #[test]
     fn manifest_checksums_are_real_sha256() {
-        for model in model_catalog() {
+        for model in LocalModel::manifest() {
             let checksum = model.checksum.as_deref().expect("checksum is required");
             assert!(!is_placeholder_checksum(checksum), "{} has placeholder checksum", model.id);
         }
