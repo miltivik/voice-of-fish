@@ -38,10 +38,16 @@ pub fn init_config(app: &AppHandle) -> Result<(), String> {
 pub fn load_app_config(app: &AppHandle) -> Result<AppConfig, String> {
     let store = match app.store(STORE_FILENAME) {
         Ok(s) => s,
-        Err(_) => return Ok(get_default_config()),
+        Err(e) => {
+            eprintln!("[config] failed to open store: {e}");
+            return Ok(get_default_config());
+        }
     };
     let mut config = match store.get(CONFIG_KEY) {
-        Some(raw) => serde_json::from_value(raw.clone()).unwrap_or_else(|_| get_default_config()),
+        Some(raw) => serde_json::from_value(raw.clone()).unwrap_or_else(|e| {
+            eprintln!("[config] failed to deserialize config: {e}");
+            get_default_config()
+        }),
         None => get_default_config(),
     };
 
@@ -54,6 +60,10 @@ pub fn load_app_config(app: &AppHandle) -> Result<AppConfig, String> {
     }
 
     if config.schema_version < CURRENT_SCHEMA_VERSION {
+        eprintln!(
+            "[config] migrating schema v{} → v{}",
+            config.schema_version, CURRENT_SCHEMA_VERSION
+        );
         // Migrate: fill empty required fields with current defaults.
         let defaults = get_default_config();
         if config.binary_path.is_empty() {
@@ -77,6 +87,14 @@ pub fn load_app_config(app: &AppHandle) -> Result<AppConfig, String> {
     // Expand tilde so all consumers get resolved absolute paths.
     config.resolve_paths();
     Ok(config)
+}
+
+/// Loads config with silent fallback to defaults (for non-critical paths).
+pub fn load_app_config_or_default(app: &AppHandle) -> AppConfig {
+    load_app_config(app).unwrap_or_else(|e| {
+        eprintln!("[config] using defaults due to error: {e}");
+        get_default_config()
+    })
 }
 
 /// Persists the app config to disk. Validates paths before saving.
