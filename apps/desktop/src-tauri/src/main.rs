@@ -1,6 +1,6 @@
-use std::sync::Mutex;
 use voice_of_fish_desktop::config;
-use voice_of_fish_desktop::process::ProcessManager;
+use voice_of_fish_desktop::process;
+
 
 fn main() {
     tauri::Builder::default()
@@ -8,12 +8,14 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .manage(Mutex::new(ProcessManager::default()))
         .setup(|app| {
             // Initialize the config store with defaults on first run.
             if let Err(e) = config::init_config(&app.handle()) {
                 eprintln!("Voice of Fish: config init warning: {e}");
             }
+            // Clean up orphaned jobs from a previous crash.
+            let cfg = config::load_app_config(&app.handle()).unwrap_or_else(|_| config::get_default_config());
+            process::reap_orphan_jobs(&cfg.outputs_path);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -34,7 +36,7 @@ fn main() {
             voice_of_fish_desktop::commands::check_directory_exists,
             voice_of_fish_desktop::commands::pick_folder,
             voice_of_fish_desktop::commands::list_generation_history,
-            voice_of_fish_desktop::commands::list_voice_presets,
+            voice_of_fish_desktop::commands::get_log_file_path,
             voice_of_fish_desktop::commands::save_voice_preset,
             voice_of_fish_desktop::commands::delete_voice_preset,
             voice_of_fish_desktop::commands::generate_sentences,

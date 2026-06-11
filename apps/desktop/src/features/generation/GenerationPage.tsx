@@ -34,8 +34,10 @@ const STATUS_PROGRESS: Record<string, number> = {
 
 export function GenerationPage() {
   const [completedJob, setCompletedJob] = useState<GenerationJob | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [cancelInFlight, setCancelInFlight] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const { startPolling } = useGenerationPolling({ onCompletedJob: setCompletedJob });
+  const { startPolling, cancelJob } = useGenerationPolling({ onCompletedJob: setCompletedJob });
   const models = useQuery({
     queryKey: ["models"],
     queryFn: studioClient.listLocalModels,
@@ -80,12 +82,16 @@ export function GenerationPage() {
     },
     onSuccess: (job) => {
       setCompletedJob(job);
+      setActiveJobId(job.id);
+      useAppStore.getState().setActiveJobId(job.id);
       useGenerationStore.getState().setStatus("generating");
       startPolling();
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : String(error);
       console.error("[GenerationPage] mutation failed:", message);
+      setActiveJobId(null);
+      useAppStore.getState().setActiveJobId(null);
       useAppStore.getState().setFooterStatus("error");
       useGenerationStore.getState().setStatus("failed");
       toast.error(`Generation failed: ${message}`);
@@ -97,6 +103,18 @@ export function GenerationPage() {
 
   const onSubmit = (values: FormValues) => {
     generation.mutate(values as GenerationRequest);
+  };
+
+  const handleCancel = async () => {
+    if (!activeJobId) return;
+    setCancelInFlight(true);
+    try {
+      cancelJob(activeJobId);
+    } finally {
+      setCancelInFlight(false);
+      setActiveJobId(null);
+      useAppStore.getState().setActiveJobId(null);
+    }
   };
 
   return (
@@ -269,9 +287,21 @@ export function GenerationPage() {
               </div>
             )}
 
-            <Button type="submit" disabled={generation.isPending}>
-              Generate
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={generation.isPending}>
+                Generate
+              </Button>
+              {(status === "preparing" || status === "generating") && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={cancelInFlight || !activeJobId}
+                  onClick={handleCancel}
+                >
+                  {cancelInFlight ? "Cancelling…" : "Cancel"}
+                </Button>
+              )}
+            </div>
           </form>
         </CardContent>
       </Card>

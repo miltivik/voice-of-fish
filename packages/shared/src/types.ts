@@ -79,8 +79,10 @@ export interface HistoryRecord {
   voiceName?: string;
   outputPath: string;
   createdAt: string;
+  completedAt?: string;
   durationSeconds?: number;
   status: Exclude<GenerationStatus, "idle">;
+  error?: string;
 }
 
 export interface SystemInfo {

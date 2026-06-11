@@ -1,10 +1,12 @@
-use crate::models::{AppConfig, AppMode, AudioFormat};
+use crate::models::{AppConfig, AppMode, AudioFormat, CURRENT_SCHEMA_VERSION};
 use std::path::PathBuf;
 use tauri::AppHandle;
+use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
 const CONFIG_KEY: &str = "app_config";
 const STORE_FILENAME: &str = "settings.json";
+const BACKUP_FILENAME: &str = "settings.json.bak";
 
 /// Initializes the config store on first setup. If no config exists, writes
 /// the defaults and saves them immediately so subsequent loads see them.
@@ -26,38 +28,89 @@ pub fn init_config(app: &AppHandle) -> Result<(), String> {
 
 /// Loads the persisted app config. Falls back to defaults if the store is
 /// missing, empty, or contains corrupt data.
-pub fn load_app_config(app: &AppHandle) -> AppConfig {
+///
+/// Schema migration: if `schema_version` is 0 (unset in older configs),
+/// any empty required path fields are filled with current defaults and the
+/// config is re-saved at the current schema version.
+///
+/// Returns an error if `schema_version` exceeds `CURRENT_SCHEMA_VERSION`,
+/// indicating a config written by a newer version of the application.
+pub fn load_app_config(app: &AppHandle) -> Result<AppConfig, String> {
     let store = match app.store(STORE_FILENAME) {
         Ok(s) => s,
-        Err(_) => return get_default_config(),
+        Err(_) => return Ok(get_default_config()),
     };
     let mut config = match store.get(CONFIG_KEY) {
         Some(raw) => serde_json::from_value(raw.clone()).unwrap_or_else(|_| get_default_config()),
         None => get_default_config(),
     };
+
+    // Schema version check and migration.
+    if config.schema_version > CURRENT_SCHEMA_VERSION {
+        return Err(format!(
+            "config schema version {} is newer than current {} — was the app downgraded?",
+            config.schema_version, CURRENT_SCHEMA_VERSION
+        ));
+    }
+
+    if config.schema_version < CURRENT_SCHEMA_VERSION {
+        // Migrate: fill empty required fields with current defaults.
+        let defaults = get_default_config();
+        if config.binary_path.is_empty() {
+            config.binary_path = defaults.binary_path;
+        }
+        if config.models_path.is_empty() {
+            config.models_path = defaults.models_path;
+        }
+        if config.outputs_path.is_empty() {
+            config.outputs_path = defaults.outputs_path;
+        }
+        config.schema_version = CURRENT_SCHEMA_VERSION;
+
+        // Re-save the migrated config to disk so subsequent loads skip migration.
+        let value = serde_json::to_value(&config)
+            .map_err(|e| format!("failed to serialize migrated config: {e}"))?;
+        store.set(CONFIG_KEY.to_string(), value);
+        let _ = store.save(); // best-effort save; config is still valid in memory
+    }
+
     // Expand tilde so all consumers get resolved absolute paths.
     config.resolve_paths();
-    config
+    Ok(config)
 }
 
 /// Persists the app config to disk. Validates paths before saving.
+/// Creates a backup of the existing settings file before overwriting.
 pub fn save_app_config(app: &AppHandle, config: &AppConfig) -> Result<AppConfig, String> {
-    // Server-side validation before persisting
+    // Server-side validation before persisting.
     config.validate_paths()?;
+
+    // Always stamp the current schema version.
+    let mut stamped = config.clone();
+    stamped.schema_version = CURRENT_SCHEMA_VERSION;
+
+    // Create a backup of the existing settings file before saving.
+    if let Ok(store_dir) = app.path().app_data_dir() {
+        let settings_path = store_dir.join(STORE_FILENAME);
+        let backup_path = store_dir.join(BACKUP_FILENAME);
+        if settings_path.exists() {
+            let _ = std::fs::copy(&settings_path, &backup_path);
+        }
+    }
 
     let store = app
         .store(STORE_FILENAME)
         .map_err(|e| format!("failed to open config store for save: {e}"))?;
 
-    let value =
-        serde_json::to_value(config).map_err(|e| format!("failed to serialize config: {e}"))?;
+    let value = serde_json::to_value(&stamped)
+        .map_err(|e| format!("failed to serialize config: {e}"))?;
 
     store.set(CONFIG_KEY.to_string(), value);
     store
         .save()
         .map_err(|e| format!("failed to save config: {e}"))?;
 
-    Ok(config.clone())
+    Ok(stamped)
 }
 
 /// Returns reasonable default paths using the user's home directory.
@@ -76,6 +129,7 @@ pub fn get_default_config() -> AppConfig {
         cpu_threads: 8,
         gpu_enabled: true,
         advanced_args: Default::default(),
+        schema_version: CURRENT_SCHEMA_VERSION,
     }
 }
 

@@ -49,6 +49,10 @@ pub enum GenerationStatus {
     Failed,
 }
 
+/// Current schema version for AppConfig. Bump when adding required fields.
+pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+
+
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
@@ -64,6 +68,9 @@ pub struct AppConfig {
     pub gpu_enabled: bool,
     #[serde(default)]
     pub advanced_args: HashMap<String, AdvancedArgValue>,
+    /// Schema version for config migration. Defaults to 0 (unset).
+    #[serde(default)]
+    pub schema_version: u32,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -350,8 +357,12 @@ pub struct HistoryRecord {
     pub output_path: String,
     pub created_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub duration_seconds: Option<f64>,
     pub status: GenerationStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 /// A user-created voice cloning preset.

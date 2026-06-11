@@ -23,7 +23,7 @@ pub fn get_real_system_info(app: &tauri::AppHandle) -> SystemInfo {
     let gpu = detect_gpu_label();
     let app_version = env!("CARGO_PKG_VERSION").to_string();
     // Check if the configured binary actually exists.
-    let cfg = config::load_app_config(app);
+    let cfg = config::load_app_config(app).unwrap_or_else(|_| config::get_default_config());
     let binary_found = if cfg.binary_path.is_empty() {
         None
     } else {

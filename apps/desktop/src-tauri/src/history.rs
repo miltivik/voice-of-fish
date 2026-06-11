@@ -20,8 +20,10 @@ pub fn record_from_job(job: &GenerationJob) -> HistoryRecord {
         voice_name: job.voice_preset_id.clone(),
         output_path: job.output_path.clone().unwrap_or_default(),
         created_at: job.created_at.clone(),
+        completed_at: job.completed_at.clone(),
         duration_seconds: job.duration_seconds,
         status: job.status.clone(),
+        error: job.error.clone(),
     }
 }
 
@@ -45,7 +47,7 @@ pub fn list_history(outputs_path: &str, limit: Option<usize>) -> Vec<HistoryReco
     records
 }
 
-/// Appends a history record and persists to disk.
+/// Appends a history record and persists to disk atomically.
 pub fn append_history(outputs_path: &str, record: &HistoryRecord) -> Result<(), String> {
     let path = history_path(outputs_path);
 
@@ -57,11 +59,19 @@ pub fn append_history(outputs_path: &str, record: &HistoryRecord) -> Result<(), 
     let mut records = list_history(outputs_path, None);
     records.push(record.clone());
 
-    let json = serde_json::to_string_pretty(&records)
+    write_records_atomic(&path, &records)
+}
+
+/// Writes records to disk atomically via temp file + rename.
+fn write_records_atomic(path: &std::path::Path, records: &[HistoryRecord]) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(records)
         .map_err(|e| format!("failed to serialize history: {e}"))?;
 
-    std::fs::write(&path, json)
-        .map_err(|e| format!("failed to write history file: {e}"))?;
+    let tmp_path = path.with_extension("tmp");
+    std::fs::write(&tmp_path, json)
+        .map_err(|e| format!("failed to write history temp file: {e}"))?;
+    std::fs::rename(&tmp_path, path)
+        .map_err(|e| format!("failed to atomically rename history file: {e}"))?;
 
     Ok(())
 }
@@ -87,13 +97,7 @@ pub fn update_history(outputs_path: &str, record: &HistoryRecord) -> Result<(), 
         records.push(record.clone());
     }
 
-    let json = serde_json::to_string_pretty(&records)
-        .map_err(|e| format!("failed to serialize history: {e}"))?;
-
-    std::fs::write(&path, json)
-        .map_err(|e| format!("failed to write history file: {e}"))?;
-
-    Ok(())
+    write_records_atomic(&path, &records)
 }
 
 #[cfg(test)]
@@ -110,8 +114,10 @@ mod tests {
             voice_name: None,
             output_path: "/outputs/test.wav".to_string(),
             created_at: "2026-05-26T12:00:00.000Z".to_string(),
+            completed_at: Some("2026-05-26T12:00:05.000Z".to_string()),
             duration_seconds: Some(3.5),
             status: GenerationStatus::Completed,
+            error: None,
         }
     }
 

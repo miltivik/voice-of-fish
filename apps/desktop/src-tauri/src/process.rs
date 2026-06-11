@@ -122,6 +122,8 @@ pub struct ProcessManager {
     pub log_lines: VecDeque<GenerationLogLine>,
     log_rx: Option<mpsc::Receiver<GenerationLogLine>>,
     handles: Vec<std::thread::JoinHandle<()>>,
+    log_file_path: Option<PathBuf>,
+    pub pid_file_path: Option<PathBuf>,
 }
 
 impl Drop for ProcessManager {
@@ -145,6 +147,8 @@ impl Default for ProcessManager {
             log_lines: VecDeque::new(),
             log_rx: None,
             handles: Vec::new(),
+            log_file_path: None,
+            pid_file_path: None,
         }
     }
 }
@@ -152,6 +156,7 @@ impl Default for ProcessManager {
 impl ProcessManager {
     pub fn spawn_generation(
         &mut self, spec: &GenerationCommandSpec, request: &GenerationRequest, job_id: &str,
+        outputs_path: &str,
     ) -> Result<GenerationJob, String> {
         use std::process::{Command, Stdio};
 
@@ -160,6 +165,31 @@ impl ProcessManager {
         if let Some(ref cwd) = spec.cwd { cmd.current_dir(cwd); }
 
         let mut child = cmd.spawn().map_err(|e| format!("failed to spawn engine: {e}"))?;
+
+        // Write PID file for crash recovery.
+        let pid = child.id();
+        let pids_dir = PathBuf::from(outputs_path).join(".voice-of-fish").join("pids");
+        if let Err(e) = std::fs::create_dir_all(&pids_dir) {
+            eprintln!("[ProcessManager] failed to create pids dir: {e}");
+        } else {
+            let pid_path = pids_dir.join(format!("{job_id}.pid"));
+            if let Err(e) = std::fs::write(&pid_path, pid.to_string()) {
+                eprintln!("[ProcessManager] failed to write PID file {}: {e}", pid_path.display());
+            } else {
+                self.pid_file_path = Some(pid_path);
+            }
+        }
+
+        // Create log file for crash recovery (persist all log lines to disk).
+        let logs_dir = PathBuf::from(outputs_path).join(".voice-of-fish").join("logs");
+        if let Err(e) = std::fs::create_dir_all(&logs_dir) {
+            eprintln!("[ProcessManager] failed to create logs dir: {e}");
+        } else {
+            let log_path = logs_dir.join(format!("{job_id}.log"));
+            // Truncate any leftover log file from a previous run with the same job_id.
+            let _ = std::fs::write(&log_path, "");
+            self.log_file_path = Some(log_path);
+        }
 
         // Bounded channel — backpressure if the UI stops polling logs.
         let (tx, rx) = mpsc::sync_channel::<GenerationLogLine>(LOG_CHANNEL_CAP);
@@ -212,7 +242,7 @@ impl ProcessManager {
             id: job_id.to_string(),
             status: GenerationStatus::Generating,
             output_path: Some(spec.output_path.to_string_lossy().to_string()),
-            audio_url: None,
+            audio_url: Some(format!("file://{}", spec.output_path.display())),
             created_at: now_str.clone(),
             completed_at: None,
             duration_seconds: None,
@@ -233,7 +263,6 @@ impl ProcessManager {
 
         Ok(job)
     }
-
     /// Drops the log channel receiver, stopping sender backpressure.
     /// Use when finalizing or cancelling a job.
     pub fn clear_log_channel(&mut self) {
@@ -241,13 +270,32 @@ impl ProcessManager {
     }
 
     /// Drains the log channel into `log_lines`, trimming to MAX_LOG_LINES.
+    /// Also persists each line to the on-disk log file for crash recovery.
     pub fn drain(&mut self) {
         if let Some(ref rx) = self.log_rx {
             while let Ok(line) = rx.try_recv() {
+                self.persist_log_line(&line);
                 while self.log_lines.len() >= MAX_LOG_LINES {
                     self.log_lines.pop_front();
                 }
                 self.log_lines.push_back(line);
+            }
+        }
+    }
+
+    /// Appends a single log line (as JSON) to the on-disk log file.
+    /// No-op if no log file is configured.
+    pub fn persist_log_line(&self, line: &GenerationLogLine) {
+        if let Some(ref log_path) = self.log_file_path {
+            if let Ok(json) = serde_json::to_string(line) {
+                use std::io::Write;
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(log_path)
+                {
+                    let _ = writeln!(file, "{json}");
+                }
             }
         }
     }
@@ -269,6 +317,10 @@ impl ProcessManager {
     fn finish(&mut self, status: Option<std::process::ExitStatus>) {
         self.drain();
         self.join_finished_handles();
+        // Clean up PID file since the job ended normally.
+        if let Some(ref pid_path) = self.pid_file_path.take() {
+            let _ = std::fs::remove_file(pid_path);
+        }
         let ts = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
         if let Some(ref mut job) = self.active_job {
             job.completed_at = Some(ts);
@@ -302,6 +354,10 @@ impl ProcessManager {
             self.drain();
             self.join_finished_handles();
             self.log_rx = None;
+            // Clean up PID file since the job ended.
+            if let Some(ref pid_path) = self.pid_file_path.take() {
+                let _ = std::fs::remove_file(pid_path);
+            }
             if let Some(ref mut job) = self.active_job {
                 if !matches!(job.status, GenerationStatus::Completed | GenerationStatus::Failed) {
                     job.status = GenerationStatus::Cancelled;
@@ -344,6 +400,88 @@ impl ProcessManager {
     }
 }
 
+
+/// Scans the `.voice-of-fish/pids/` directory for leftover PID files from a
+/// previous crash. For each PID that is no longer running, removes the PID file
+/// and the corresponding partial output file.
+pub fn reap_orphan_jobs(outputs_path: &str) {
+    let pids_dir = PathBuf::from(outputs_path).join(".voice-of-fish").join("pids");
+    let entries = match std::fs::read_dir(&pids_dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().map_or(true, |e| e != "pid") {
+            continue;
+        }
+
+        let pid_str = match std::fs::read_to_string(&path) {
+            Ok(s) => s.trim().to_string(),
+            Err(_) => {
+                let _ = std::fs::remove_file(&path);
+                continue;
+            }
+        };
+
+        let pid: u32 = match pid_str.parse() {
+            Ok(p) => p,
+            Err(_) => {
+                let _ = std::fs::remove_file(&path);
+                continue;
+            }
+        };
+
+        if !is_process_alive(pid) {
+            eprintln!(
+                "[ProcessManager] reaping orphan job from PID file {} (pid {pid} not alive)",
+                path.display()
+            );
+            // Remove the PID file.
+            let _ = std::fs::remove_file(&path);
+            // Remove partial output WAV if the job ID can be derived from the PID filename.
+            let job_id = path.file_stem().unwrap_or_default().to_string_lossy();
+            let output_file = PathBuf::from(outputs_path).join(format!("{}.wav", job_id));
+            if output_file.exists() {
+                let _ = std::fs::remove_file(&output_file);
+            }
+        }
+    }
+}
+
+/// Returns true if a process with the given PID is alive.
+#[cfg(unix)]
+fn is_process_alive(pid: u32) -> bool {
+    // kill(pid, 0) checks for existence without sending a signal.
+    // On macOS, /bin/kill is available; on Linux we prefer /proc.
+    if std::path::Path::new(&format!("/proc/{pid}")).exists() {
+        return true;
+    }
+    std::process::Command::new("kill")
+        .arg("-0")
+        .arg(pid.to_string())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Returns true if a process with the given PID is alive (Windows).
+#[cfg(windows)]
+fn is_process_alive(pid: u32) -> bool {
+    std::process::Command::new("tasklist")
+        .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .map(|o| {
+            let output = String::from_utf8_lossy(&o.stdout);
+            output.contains(&pid.to_string())
+        })
+        .unwrap_or(false)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -397,17 +535,14 @@ mod tests {
             reference_audio_path: None,
             reference_text: None,
         };
-        let c = AppConfig {
-            mode: AppMode::Simple,
-            binary_path: "/b".into(),
-            models_path: "/m".into(),
-            outputs_path: "/o".into(),
-            default_model_id: "s2".into(),
-            default_audio_format: AudioFormat::Wav,
-            cpu_threads: 4,
-            gpu_enabled: true,
-            advanced_args: Default::default(),
-        };
+        let c = AppConfig { mode: AppMode::Simple,
+        binary_path: "/b".into(),
+        models_path: "/m".into(),
+        outputs_path: "/o".into(),
+        default_model_id: "s2".into(),
+        default_audio_format: AudioFormat::Wav,
+        cpu_threads: 4,
+        gpu_enabled: true, advanced_args: Default::default(), schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -447,17 +582,14 @@ mod tests {
             reference_audio_path: None,
             reference_text: None,
         };
-        let c = AppConfig {
-            mode: AppMode::Simple,
-            binary_path: "/b".into(),
-            models_path: "/m".into(),
-            outputs_path: "/o".into(),
-            default_model_id: "s2".into(),
-            default_audio_format: AudioFormat::Wav,
-            cpu_threads: 1,
-            gpu_enabled: true,
-            advanced_args: Default::default(),
-        };
+        let c = AppConfig { mode: AppMode::Simple,
+        binary_path: "/b".into(),
+        models_path: "/m".into(),
+        outputs_path: "/o".into(),
+        default_model_id: "s2".into(),
+        default_audio_format: AudioFormat::Wav,
+        cpu_threads: 1,
+        gpu_enabled: true, advanced_args: Default::default(), schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -490,17 +622,14 @@ mod tests {
             reference_audio_path: None,
             reference_text: None,
         };
-        let c = AppConfig {
-            mode: AppMode::Simple,
-            binary_path: "/b".into(),
-            models_path: "/m".into(),
-            outputs_path: "/o".into(),
-            default_model_id: "s2".into(),
-            default_audio_format: AudioFormat::Wav,
-            cpu_threads: 1,
-            gpu_enabled: false,
-            advanced_args: Default::default(),
-        };
+        let c = AppConfig { mode: AppMode::Simple,
+        binary_path: "/b".into(),
+        models_path: "/m".into(),
+        outputs_path: "/o".into(),
+        default_model_id: "s2".into(),
+        default_audio_format: AudioFormat::Wav,
+        cpu_threads: 1,
+        gpu_enabled: false, advanced_args: Default::default(), schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -528,17 +657,14 @@ mod tests {
             reference_audio_path: Some("/audio/ref.wav".into()),
             reference_text: Some("reference transcript".into()),
         };
-        let c = AppConfig {
-            mode: AppMode::Simple,
-            binary_path: "/b".into(),
-            models_path: "/m".into(),
-            outputs_path: "/o".into(),
-            default_model_id: "s2".into(),
-            default_audio_format: AudioFormat::Wav,
-            cpu_threads: 1,
-            gpu_enabled: true,
-            advanced_args: Default::default(),
-        };
+        let c = AppConfig { mode: AppMode::Simple,
+        binary_path: "/b".into(),
+        models_path: "/m".into(),
+        outputs_path: "/o".into(),
+        default_model_id: "s2".into(),
+        default_audio_format: AudioFormat::Wav,
+        cpu_threads: 1,
+        gpu_enabled: true, advanced_args: Default::default(), schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -571,17 +697,14 @@ mod tests {
             reference_audio_path: None,
             reference_text: None,
         };
-        let c = AppConfig {
-            mode: AppMode::Simple,
-            binary_path: "/b".into(),
-            models_path: "/m".into(),
-            outputs_path: "/o".into(),
-            default_model_id: "s2".into(),
-            default_audio_format: AudioFormat::Wav,
-            cpu_threads: 1,
-            gpu_enabled: true,
-            advanced_args: Default::default(),
-        };
+        let c = AppConfig { mode: AppMode::Simple,
+        binary_path: "/b".into(),
+        models_path: "/m".into(),
+        outputs_path: "/o".into(),
+        default_model_id: "s2".into(),
+        default_audio_format: AudioFormat::Wav,
+        cpu_threads: 1,
+        gpu_enabled: true, advanced_args: Default::default(), schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -630,17 +753,14 @@ mod tests {
             tokenizer_path.display()
         );
         let outputs_dir = tempfile::TempDir::new().unwrap();
-        let config = AppConfig {
-            mode: AppMode::Simple,
-            binary_path: bin_path,
-            models_path: models_path.to_string_lossy().to_string(),
-            outputs_path: outputs_dir.path().to_string_lossy().to_string(),
-            default_model_id: "s2".into(),
-            default_audio_format: AudioFormat::Wav,
-            cpu_threads: 1,
-            gpu_enabled: false,
-            advanced_args: Default::default(),
-        };
+        let config = AppConfig { mode: AppMode::Simple,
+        binary_path: bin_path,
+        models_path: models_path.to_string_lossy().to_string(),
+        outputs_path: outputs_dir.path().to_string_lossy().to_string(),
+        default_model_id: "s2".into(),
+        default_audio_format: AudioFormat::Wav,
+        cpu_threads: 1,
+        gpu_enabled: false, advanced_args: Default::default(), schema_version: 1, };
         let model = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,

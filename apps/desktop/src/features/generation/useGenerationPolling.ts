@@ -17,6 +17,7 @@ interface UseGenerationPollingOptions {
 interface UseGenerationPollingResult {
   startPolling: () => void;
   stopPolling: () => void;
+  cancelJob: (jobId: string) => void;
 }
 
 export function useGenerationPolling({
@@ -79,8 +80,10 @@ export function useGenerationPolling({
           toast.error(`Generation failed: ${active.error ?? "unknown error"}`);
         } else if (active.status === "cancelled") {
           stopPolling();
+          onCompletedJob(active);
           useGenerationStore.getState().setStatus("cancelled");
           useAppStore.getState().setFooterStatus("ready");
+          queryClient.invalidateQueries({ queryKey: ["history"] });
         }
         // "generating" → keep polling
       } catch {
@@ -102,5 +105,18 @@ export function useGenerationPolling({
     };
   }, [stopPolling]);
 
-  return { startPolling, stopPolling };
+  const cancelJob = useCallback(
+    (jobId: string) => {
+      stopPolling();
+      useGenerationStore.getState().setStatus("cancelled");
+      useAppStore.getState().setFooterStatus("ready");
+      studioClient.cancelGeneration(jobId).catch((err) => {
+        console.error("[useGenerationPolling] cancel failed:", err);
+      });
+    },
+    [stopPolling],
+  );
+
+
+  return { startPolling, stopPolling, cancelJob };
 }

@@ -66,15 +66,26 @@ pub fn save_preset(
         presets.push(validated);
     }
 
-    let json = serde_json::to_string_pretty(&presets)
-        .map_err(|e| format!("failed to serialize presets: {e}"))?;
-
-    std::fs::write(&path, json)
-        .map_err(|e| format!("failed to write presets file: {e}"))?;
+    write_presets_atomic(&path, &presets)?;
 
     // Return the persisted preset from the in-memory vec we just wrote.
     Ok(presets.into_iter().find(|p| p.id == id).expect("just-inserted"))
 }
+
+/// Writes presets to disk atomically via temp file + rename.
+fn write_presets_atomic(path: &std::path::Path, presets: &[VoicePreset]) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(presets)
+        .map_err(|e| format!("failed to serialize presets: {e}"))?;
+
+    let tmp_path = path.with_extension("tmp");
+    std::fs::write(&tmp_path, json)
+        .map_err(|e| format!("failed to write presets temp file: {e}"))?;
+    std::fs::rename(&tmp_path, path)
+        .map_err(|e| format!("failed to atomically rename presets file: {e}"))?;
+
+    Ok(())
+}
+
 /// Looks up a preset by ID and validates that its `reference_audio_path`
 /// is within `outputs_path`. Returns `(reference_audio_path, reference_text)`
 /// on success so callers can safely merge into a generation request.
@@ -110,11 +121,7 @@ pub fn delete_preset(outputs_path: &str, id: &str) -> Result<bool, String> {
         return Ok(false); // not found
     }
 
-    let json = serde_json::to_string_pretty(&presets)
-        .map_err(|e| format!("failed to serialize presets: {e}"))?;
-
-    std::fs::write(&path, json)
-        .map_err(|e| format!("failed to write presets file: {e}"))?;
+    write_presets_atomic(&path, &presets)?;
 
     Ok(true)
 }

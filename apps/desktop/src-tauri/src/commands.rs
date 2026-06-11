@@ -19,7 +19,7 @@ pub fn get_system_info(app: tauri::AppHandle) -> SystemInfo {
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_app_config(app: tauri::AppHandle) -> AppConfig {
-    config::load_app_config(&app)
+    config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -32,7 +32,7 @@ pub fn save_app_config(
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn list_local_models(app: tauri::AppHandle) -> Vec<LocalModel> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
     let models_path = std::path::Path::new(&cfg.models_path);
     downloads::list_local_models(models_path)
 }
@@ -46,8 +46,8 @@ pub async fn download_model(
     // Without spawn_blocking, this would freeze the entire UI for the duration
     // of the download because Tauri 2 runs synchronous commands on the main thread.
     let app_clone = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let cfg = config::load_app_config(&app_clone);
+    tauri::async_runtime::spawn_blocking(move || -> Result<Vec<LocalModel>, String> {
+        let cfg = config::load_app_config(&app_clone)?;
         let models_path = std::path::Path::new(&cfg.models_path);
         downloads::download_model_file(models_path, &model_id, Some(&app_clone))
     })
@@ -59,7 +59,7 @@ pub fn delete_model(
     model_id: String,
     app: tauri::AppHandle,
 ) -> Result<Vec<LocalModel>, String> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app)?;
     let models_path = std::path::Path::new(&cfg.models_path);
     downloads::delete_model_file(models_path, &model_id)
 }
@@ -73,7 +73,7 @@ pub fn run_generation(
     // Server-side request validation before touching filesystem or spawning.
     request.validate()?;
 
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app)?;
 
     // Validate persisted config before spawning.
     cfg.validate_paths()?;
@@ -123,7 +123,7 @@ pub fn run_generation(
         return Err("a generation is already in progress".to_string());
     }
 
-    let job = manager.spawn_generation(&spec, &resolved_request, &job_id)?;
+    let job = manager.spawn_generation(&spec, &resolved_request, &job_id, &cfg.outputs_path)?;
     let record = history::record_from_job(&job);
     drop(manager);
 
@@ -165,6 +165,10 @@ pub fn cancel_generation(
     manager.drain();
     manager.clear_log_channel();
     manager.join_finished_handles();
+    // Clean up PID file since the job was cancelled.
+    if let Some(ref pid_path) = manager.pid_file_path.take() {
+        let _ = std::fs::remove_file(pid_path);
+    }
     if let Some(ref mut job) = manager.active_job {
         if !matches!(job.status, GenerationStatus::Completed | GenerationStatus::Failed) {
             job.status = GenerationStatus::Cancelled;
@@ -190,7 +194,7 @@ pub fn get_active_job(
     // If the job finished, persist the updated status to history.
     if let Some(ref job) = job {
         if matches!(job.status, GenerationStatus::Completed | GenerationStatus::Failed | GenerationStatus::Cancelled) {
-            let cfg = config::load_app_config(&app);
+            let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
             let record = history::record_from_job(job);
             let _ = history::update_history(&cfg.outputs_path, &record);
         }
@@ -202,6 +206,7 @@ pub fn get_active_job(
 pub fn read_generation_logs(
     job_id: Option<String>,
     process_manager: State<'_, Mutex<ProcessManager>>,
+    app: tauri::AppHandle,
 ) -> Vec<GenerationLogLine> {
     let mut manager = match process_manager.lock() {
         Ok(m) => m,
@@ -211,27 +216,66 @@ pub fn read_generation_logs(
     manager.check_completion();
 
     if let Some(ref jid) = job_id {
-        manager
+        let in_memory: Vec<GenerationLogLine> = manager
             .log_lines
             .iter()
             .filter(|line| line.id.starts_with(jid))
             .cloned()
-            .collect()
+            .collect();
+        if !in_memory.is_empty() {
+            return in_memory;
+        }
+        // After a restart, the in-memory buffer is empty — try the on-disk log file.
+        let Ok(cfg) = config::load_app_config(&app) else {
+            return in_memory;
+        };
+        let log_path = std::path::PathBuf::from(&cfg.outputs_path)
+            .join(".voice-of-fish")
+            .join("logs")
+            .join(format!("{}.log", jid));
+        if log_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&log_path) {
+                let mut lines: Vec<GenerationLogLine> = content
+                    .lines()
+                    .filter_map(|l| serde_json::from_str::<GenerationLogLine>(l).ok())
+                    .collect();
+                lines.sort_by_key(|l| l.id.clone());
+                return lines;
+            }
+        }
+        in_memory
     } else {
         manager.log_lines.iter().cloned().collect()
     }
 }
 
+/// Returns the on-disk log file path for a job, if it exists.
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_log_file_path(
+    job_id: String,
+    app: tauri::AppHandle,
+) -> Option<String> {
+    let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
+    let log_path = std::path::PathBuf::from(&cfg.outputs_path)
+        .join(".voice-of-fish")
+        .join("logs")
+        .join(format!("{job_id}.log"));
+    if log_path.exists() {
+        Some(log_path.to_string_lossy().to_string())
+    } else {
+        None
+    }
+}
 #[tauri::command(rename_all = "camelCase")]
 pub fn open_output_folder(path: String, app: tauri::AppHandle) -> Result<(), String> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app)?;
     cfg.validate_paths()?;
     crate::output_paths::open_output_folder(&cfg.outputs_path, &path)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn open_file_path(path: String, app: tauri::AppHandle) -> Result<(), String> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app)?;
     cfg.validate_paths()?;
     crate::output_paths::open_file_path(&cfg.outputs_path, &path)
 }
@@ -340,15 +384,45 @@ pub fn list_generation_history(
     limit: Option<usize>,
     app: tauri::AppHandle,
 ) -> Vec<HistoryRecord> {
-    let cfg = config::load_app_config(&app);
-    history::list_history(&cfg.outputs_path, limit)
+    let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
+    let mut records = history::list_history(&cfg.outputs_path, limit);
+    let now = chrono::Utc::now();
+    let cutoff = chrono::Duration::minutes(30);
+    let mut modified = false;
+
+    for record in &mut records {
+        if record.status == GenerationStatus::Generating
+            && record.completed_at.is_none()
+        {
+            if let Ok(created) = chrono::DateTime::parse_from_rfc3339(&record.created_at) {
+                if now.signed_duration_since(created) > cutoff {
+                    record.status = GenerationStatus::Failed;
+                    record.error = Some("app restarted during generation".into());
+                    modified = true;
+                }
+            }
+        }
+    }
+
+    if modified {
+        // Persist changes back to disk.
+        for record in &records {
+            if record.status == GenerationStatus::Failed
+                && record.error.as_deref() == Some("app restarted during generation")
+            {
+                let _ = history::update_history(&cfg.outputs_path, record);
+            }
+        }
+    }
+
+    records
 }
 
 // --- Voice preset commands ---
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn list_voice_presets(app: tauri::AppHandle) -> Vec<VoicePreset> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
     presets::list_presets(&cfg.outputs_path)
 }
 
@@ -357,7 +431,7 @@ pub fn save_voice_preset(
     preset: VoicePreset,
     app: tauri::AppHandle,
 ) -> Result<VoicePreset, String> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app)?;
     presets::save_preset(&cfg.outputs_path, &preset)
 }
 
@@ -366,7 +440,7 @@ pub fn delete_voice_preset(
     id: String,
     app: tauri::AppHandle,
 ) -> Result<bool, String> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app)?;
     presets::delete_preset(&cfg.outputs_path, &id)
 }
 
@@ -377,7 +451,7 @@ pub fn export_editor_bundle(
     target_dir: String,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app)?;
     cfg.validate_paths()?;
     crate::output_paths::export_editor_bundle(&cfg.outputs_path, &clips, &target_dir)
 }
@@ -579,7 +653,7 @@ mod export_tests {
 pub async fn seed_built_in_voices(
     app: tauri::AppHandle,
 ) -> Result<Vec<serde_json::Value>, String> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app)?;
     cfg.validate_paths()?;
     let results = built_in_voices::seed_built_in_voices(&cfg.outputs_path);
     let values: Vec<serde_json::Value> = results
@@ -604,7 +678,7 @@ pub fn generate_sentences(
     voice_preset_id: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<Vec<crate::models::SentenceClip>, String> {
-    let cfg = config::load_app_config(&app);
+    let cfg = config::load_app_config(&app)?;
     cfg.validate_executable()?;
     let models = downloads::list_local_models(std::path::Path::new(&cfg.models_path));
     let model = models
