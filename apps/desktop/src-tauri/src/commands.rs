@@ -418,6 +418,21 @@ pub fn list_generation_history(
     records
 }
 
+#[tauri::command(rename_all = "camelCase")]
+pub fn delete_history_record(
+    job_id: String,
+    app: tauri::AppHandle,
+) -> Result<bool, String> {
+    let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
+    history::delete_history(&cfg.outputs_path, &job_id).map(|_| true)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn clear_history(app: tauri::AppHandle) -> Result<bool, String> {
+    let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
+    history::clear_all_history(&cfg.outputs_path).map(|_| true)
+}
+
 // --- Voice preset commands ---
 
 #[tauri::command(rename_all = "camelCase")]

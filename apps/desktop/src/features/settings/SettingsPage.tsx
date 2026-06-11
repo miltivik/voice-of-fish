@@ -1,7 +1,9 @@
-import { z } from "zod";
-import type { Resolver } from "react-hook-form";
+import { useCallback, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
 import { settingsSchema } from "@voice-of-fish/shared/schemas";
 import { DEFAULT_APP_CONFIG, S2_MODEL_MANIFEST } from "@voice-of-fish/shared/constants";
 import { useAppStore } from "@/stores/useAppStore";
@@ -19,6 +21,9 @@ export function SettingsPage() {
   const {
     register,
     handleSubmit,
+    reset,
+    watch,
+    setValue,
     formState: { errors, isDirty, isValid },
   } = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema) as Resolver<SettingsFormValues>,
@@ -26,17 +31,141 @@ export function SettingsPage() {
     mode: "onBlur",
   });
 
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advancedArgsText, setAdvancedArgsText] = useState(() =>
+    JSON.stringify((config?.advancedArgs ?? {}), null, 2),
+  );
+  const [advancedArgsError, setAdvancedArgsError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+
   const onSubmit = async (values: SettingsFormValues) => {
     await studioClient.saveAppConfig(values);
     saveConfig(values);
   };
 
+  const handleExport = useCallback(async () => {
+    try {
+      const currentConfig = await studioClient.getAppConfig();
+      if (!currentConfig) {
+        toast.error("No config to export");
+        return;
+      }
+      const json = JSON.stringify(currentConfig, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "voice-of-fish-config.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Config exported");
+    } catch {
+      toast.error("Failed to export config");
+    }
+  }, []);
+
+  const handleImport = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const result = settingsSchema.safeParse(parsed);
+        if (!result.success) {
+          toast.error(`Invalid config: ${result.error.issues.map((i) => i.message).join(", ")}`);
+          return;
+        }
+        reset(result.data);
+        setAdvancedArgsText(JSON.stringify(result.data.advancedArgs ?? {}, null, 2));
+        setAdvancedArgsError(null);
+        await studioClient.saveAppConfig(result.data);
+        saveConfig(result.data);
+        toast.success("Config imported");
+      } catch (err) {
+        if (err instanceof SyntaxError) {
+          toast.error("Invalid JSON file");
+        } else {
+          toast.error(`Failed to import: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      // Reset file input so the same file can be re-imported
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [reset, saveConfig],
+  );
+
+  const handleReset = useCallback(async () => {
+    reset({ ...DEFAULT_APP_CONFIG });
+    setAdvancedArgsText("{}");
+    setAdvancedArgsError(null);
+    await studioClient.saveAppConfig({ ...DEFAULT_APP_CONFIG });
+    saveConfig({ ...DEFAULT_APP_CONFIG });
+    toast.success("Reset to defaults");
+  }, [reset, saveConfig]);
+
+  const handleAdvancedArgsChange = useCallback(
+    (text: string) => {
+      setAdvancedArgsText(text);
+      const trimmed = text.trim();
+      if (trimmed === "") {
+        setAdvancedArgsError(null);
+        setValue("advancedArgs", {}, { shouldValidate: true });
+        return;
+      }
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+          setAdvancedArgsError("Must be a JSON object");
+          return;
+        }
+        setAdvancedArgsError(null);
+        setValue("advancedArgs", parsed as Record<string, unknown>, { shouldValidate: true });
+      } catch {
+        setAdvancedArgsError("Invalid JSON");
+      }
+    },
+    [setValue],
+  );
+
   return (
     <section className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-normal">Settings</h1>
-        <p className="mt-1 text-sm text-concrete-300">Local app configuration.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-normal">Settings</h1>
+          <p className="mt-1 text-sm text-concrete-300">Local app configuration.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={handleExport}>
+            Export config
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleImport}>
+            Import config
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleReset}>
+            Reset to defaults
+          </Button>
+        </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleFileChange}
+      />
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Paths */}
@@ -87,6 +216,57 @@ export function SettingsPage() {
               <label htmlFor="gpuEnabled" className="text-sm font-medium text-concrete-50">Enable GPU</label>
             </div>
           </CardContent>
+        </Card>
+
+        {/* Advanced Mode */}
+        <Card>
+          <CardHeader
+            className="cursor-pointer select-none"
+            onClick={() => setShowAdvanced((v) => !v)}
+          >
+            <CardTitle className="flex items-center justify-between">
+              <span>Advanced</span>
+              <span className="text-sm font-mono text-concrete-300">
+                {showAdvanced ? "[-]" : "[+]"}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          {showAdvanced && (
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-2">
+                <input
+                  id="mode"
+                  type="checkbox"
+                  checked={watch("mode") === "advanced"}
+                  onChange={(e) =>
+                    setValue("mode", e.target.checked ? "advanced" : "simple", {
+                      shouldValidate: true,
+                    })
+                  }
+                  className="h-4 w-4 accent-electric"
+                />
+                <label htmlFor="mode" className="text-sm font-medium text-concrete-50">
+                  Advanced mode (show raw engine args)
+                </label>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="advancedArgs" className="text-sm font-medium text-concrete-50">
+                  Advanced Args (JSON)
+                </label>
+                <textarea
+                  id="advancedArgs"
+                  value={advancedArgsText}
+                  onChange={(e) => handleAdvancedArgsChange(e.target.value)}
+                  rows={6}
+                  className="flex w-full rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2 font-mono text-sm text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric"
+                  placeholder='{"--top_k": 40}'
+                />
+                {advancedArgsError && (
+                  <p className="text-xs text-ember">{advancedArgsError}</p>
+                )}
+              </div>
+            </CardContent>
+          )}
         </Card>
 
         <div className="flex justify-end">

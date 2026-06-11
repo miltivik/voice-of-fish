@@ -100,6 +100,31 @@ pub fn update_history(outputs_path: &str, record: &HistoryRecord) -> Result<(), 
     write_records_atomic(&path, &records)
 }
 
+/// Deletes a single history record by id.
+pub fn delete_history(outputs_path: &str, job_id: &str) -> Result<(), String> {
+    let path = history_path(outputs_path);
+    let mut records = list_history(outputs_path, None);
+    let len_before = records.len();
+    records.retain(|r| r.id != job_id);
+    if records.len() == len_before {
+        return Err(format!("record not found: {job_id}"));
+    }
+    write_records_atomic(&path, &records)
+}
+
+/// Clears all history records.
+pub fn clear_all_history(outputs_path: &str) -> Result<(), String> {
+    let path = history_path(outputs_path);
+    if path.exists() {
+        let tmp_path = path.with_extension("tmp");
+        // Remove the temp file if it exists from a previous interrupted write.
+        let _ = std::fs::remove_file(&tmp_path);
+        std::fs::remove_file(&path)
+            .map_err(|e| format!("failed to remove history file: {e}"))?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

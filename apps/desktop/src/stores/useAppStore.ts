@@ -12,6 +12,7 @@ interface AppState {
   setFooterStatus: (status: AppState["footerStatus"]) => void;
   setActiveJobId: (id: string | null) => void;
   cancelGeneration: () => Promise<void>;
+  setActiveModelAndPersist: (modelId: string) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -31,5 +32,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!activeJobId) return;
     await studioClient.cancelGeneration(activeJobId);
     set({ activeJobId: null });
+  },
+  setActiveModelAndPersist: async (modelId: string) => {
+    const current = get().config;
+    if (current) {
+      const updated = { ...current, defaultModelId: modelId };
+      await studioClient.saveAppConfig(updated);
+      set({ config: updated });
+    }
   },
 }));

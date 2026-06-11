@@ -36,6 +36,8 @@ fn main() {
             voice_of_fish_desktop::commands::check_directory_exists,
             voice_of_fish_desktop::commands::pick_folder,
             voice_of_fish_desktop::commands::list_generation_history,
+            voice_of_fish_desktop::commands::delete_history_record,
+            voice_of_fish_desktop::commands::clear_history,
             voice_of_fish_desktop::commands::get_log_file_path,
             voice_of_fish_desktop::commands::save_voice_preset,
             voice_of_fish_desktop::commands::delete_voice_preset,

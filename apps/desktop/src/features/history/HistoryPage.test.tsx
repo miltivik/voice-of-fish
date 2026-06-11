@@ -47,7 +47,7 @@ describe("HistoryPage", () => {
   it("renders open folder button for each record", async () => {
     setupTauriMocks({ list_generation_history: structuredClone(MOCK_RECORDS) });
     render(<HistoryPage />, { wrapper: AppProviders });
-    const folderButtons = await screen.findAllByText(/abrir carpeta/i);
+    const folderButtons = await screen.findAllByText(/open folder/i);
     expect(folderButtons).toHaveLength(2);
   });
 });

@@ -132,6 +132,8 @@ export function GenerationPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <form
+            id="generation-form"
+            data-shortcut="generate"
             onSubmit={handleSubmit(onSubmit)}
             noValidate
             className="space-y-4"
