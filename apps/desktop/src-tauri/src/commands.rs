@@ -307,15 +307,13 @@ pub fn read_generation_logs(
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn open_output_folder(path: String, app: tauri::AppHandle) -> Result<(), String> {
-    let cfg = config::load_app_config(&app)?;
-    cfg.validate_paths()?;
+    let cfg = config::load_validated_config(&app)?;
     crate::output_paths::open_output_folder(&cfg.outputs_path, &path)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn open_file_path(path: String, app: tauri::AppHandle) -> Result<(), String> {
-    let cfg = config::load_app_config(&app)?;
-    cfg.validate_paths()?;
+    let cfg = config::load_validated_config(&app)?;
     crate::output_paths::open_file_path(&cfg.outputs_path, &path)
 }
 
@@ -323,8 +321,7 @@ pub fn open_file_path(path: String, app: tauri::AppHandle) -> Result<(), String>
 /// to play generated audio without needing the `asset://` protocol.
 #[tauri::command(rename_all = "camelCase")]
 pub fn read_audio_bytes(path: String, app: tauri::AppHandle) -> Result<Vec<u8>, String> {
-    let cfg = config::load_app_config(&app)?;
-    cfg.validate_paths()?;
+    let cfg = config::load_validated_config(&app)?;
     crate::audio_io::read_audio_bytes(&cfg.outputs_path, &path)
 }
 
@@ -337,8 +334,7 @@ pub fn import_model_file(
     file_name: String,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
-    let cfg = config::load_app_config(&app)?;
-    cfg.validate_paths()?;
+    let cfg = config::load_validated_config(&app)?;
     let dest = crate::audio_io::import_model_file(&cfg.models_path, &source_path, &file_name)?;
     Ok(dest.to_string_lossy().to_string())
 }
@@ -539,8 +535,7 @@ pub fn export_editor_bundle(
     target_dir: String,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
-    let cfg = config::load_app_config(&app)?;
-    cfg.validate_paths()?;
+    let cfg = config::load_validated_config(&app)?;
     crate::output_paths::export_editor_bundle(&cfg.outputs_path, &clips, &target_dir)
 }
 

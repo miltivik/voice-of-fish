@@ -7,7 +7,6 @@ use tauri_plugin_store::StoreExt;
 const CONFIG_KEY: &str = "app_config";
 const STORE_FILENAME: &str = "settings.json";
 const BACKUP_FILENAME: &str = "settings.json.bak";
-
 /// Initializes the config store on first setup. If no config exists, writes
 /// the defaults and saves them immediately so subsequent loads see them.
 pub fn init_config(app: &AppHandle) -> Result<(), String> {
@@ -24,6 +23,18 @@ pub fn init_config(app: &AppHandle) -> Result<(), String> {
             .map_err(|e| format!("failed to persist default config: {e}"))?;
     }
     Ok(())
+}
+
+/// Loads the persisted app config and validates its paths are safe.
+/// Returns an owned AppConfig so callers can borrow the fields (e.g.
+/// `&cfg.outputs_path`) without lifetime ties to the AppHandle.
+/// All commands that operate on a path under the configured roots
+/// MUST go through this helper rather than calling
+/// `load_app_config + validate_paths` themselves.
+pub fn load_validated_config(app: &AppHandle) -> Result<AppConfig, String> {
+    let cfg = load_app_config(app)?;
+    cfg.validate_paths()?;
+    Ok(cfg)
 }
 
 /// Loads the persisted app config. Falls back to defaults if the store is
