@@ -1,11 +1,13 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
-import type { Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { settingsSchema } from "@voice-of-fish/shared/schemas";
-import { DEFAULT_APP_CONFIG, S2_MODEL_MANIFEST } from "@voice-of-fish/shared/constants";
+import {
+  DEFAULT_APP_CONFIG,
+  S2_MODEL_MANIFEST,
+} from "@voice-of-fish/shared/constants";
 import { useAppStore } from "@/stores/useAppStore";
 import { studioClient } from "@/lib/tauri";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -22,22 +24,13 @@ export function SettingsPage() {
     register,
     handleSubmit,
     reset,
-    watch,
-    setValue,
     formState: { errors, isDirty, isValid },
-  } = useForm<SettingsFormValues>({
-    resolver: zodResolver(settingsSchema) as Resolver<SettingsFormValues>,
+  } = useForm({
+    resolver: zodResolver(settingsSchema),
     defaultValues: config ?? { ...DEFAULT_APP_CONFIG },
     mode: "onBlur",
   });
-
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [advancedArgsText, setAdvancedArgsText] = useState(() =>
-    JSON.stringify((config?.advancedArgs ?? {}), null, 2),
-  );
-  const [advancedArgsError, setAdvancedArgsError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
 
   const onSubmit = async (values: SettingsFormValues) => {
     await studioClient.saveAppConfig(values);
@@ -81,12 +74,12 @@ export function SettingsPage() {
         const parsed = JSON.parse(text);
         const result = settingsSchema.safeParse(parsed);
         if (!result.success) {
-          toast.error(`Invalid config: ${result.error.issues.map((i) => i.message).join(", ")}`);
+          toast.error(
+            `Invalid config: ${result.error.issues.map((i) => i.message).join(", ")}`,
+          );
           return;
         }
         reset(result.data);
-        setAdvancedArgsText(JSON.stringify(result.data.advancedArgs ?? {}, null, 2));
-        setAdvancedArgsError(null);
         await studioClient.saveAppConfig(result.data);
         saveConfig(result.data);
         toast.success("Config imported");
@@ -94,7 +87,9 @@ export function SettingsPage() {
         if (err instanceof SyntaxError) {
           toast.error("Invalid JSON file");
         } else {
-          toast.error(`Failed to import: ${err instanceof Error ? err.message : String(err)}`);
+          toast.error(
+            `Failed to import: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
       }
 
@@ -108,43 +103,19 @@ export function SettingsPage() {
 
   const handleReset = useCallback(async () => {
     reset({ ...DEFAULT_APP_CONFIG });
-    setAdvancedArgsText("{}");
-    setAdvancedArgsError(null);
     await studioClient.saveAppConfig({ ...DEFAULT_APP_CONFIG });
     saveConfig({ ...DEFAULT_APP_CONFIG });
     toast.success("Reset to defaults");
   }, [reset, saveConfig]);
-
-  const handleAdvancedArgsChange = useCallback(
-    (text: string) => {
-      setAdvancedArgsText(text);
-      const trimmed = text.trim();
-      if (trimmed === "") {
-        setAdvancedArgsError(null);
-        setValue("advancedArgs", {}, { shouldValidate: true });
-        return;
-      }
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-          setAdvancedArgsError("Must be a JSON object");
-          return;
-        }
-        setAdvancedArgsError(null);
-        setValue("advancedArgs", parsed as Record<string, unknown>, { shouldValidate: true });
-      } catch {
-        setAdvancedArgsError("Invalid JSON");
-      }
-    },
-    [setValue],
-  );
 
   return (
     <section className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">Settings</h1>
-          <p className="mt-1 text-sm text-concrete-300">Local app configuration.</p>
+          <p className="mt-1 text-sm text-concrete-300">
+            Local app configuration.
+          </p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={handleExport}>
@@ -175,19 +146,61 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
-              <label htmlFor="binaryPath" className="text-sm font-medium text-concrete-50">Binary</label>
-              <Input id="binaryPath" {...register("binaryPath")} placeholder="/path/to/s2" aria-invalid={!!errors.binaryPath} />
-              {errors.binaryPath && <p className="text-xs text-ember">{errors.binaryPath.message}</p>}
+              <label
+                htmlFor="binaryPath"
+                className="text-sm font-medium text-concrete-50"
+              >
+                Binary
+              </label>
+              <Input
+                id="binaryPath"
+                {...register("binaryPath")}
+                placeholder="/path/to/s2"
+                aria-invalid={!!errors.binaryPath}
+              />
+              {errors.binaryPath && (
+                <p className="text-xs text-ember">
+                  {errors.binaryPath.message}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
-              <label htmlFor="modelsPath" className="text-sm font-medium text-concrete-50">Models</label>
-              <Input id="modelsPath" {...register("modelsPath")} placeholder="/path/to/models" aria-invalid={!!errors.modelsPath} />
-              {errors.modelsPath && <p className="text-xs text-ember">{errors.modelsPath.message}</p>}
+              <label
+                htmlFor="modelsPath"
+                className="text-sm font-medium text-concrete-50"
+              >
+                Models
+              </label>
+              <Input
+                id="modelsPath"
+                {...register("modelsPath")}
+                placeholder="/path/to/models"
+                aria-invalid={!!errors.modelsPath}
+              />
+              {errors.modelsPath && (
+                <p className="text-xs text-ember">
+                  {errors.modelsPath.message}
+                </p>
+              )}
             </div>
             <div className="space-y-1">
-              <label htmlFor="outputsPath" className="text-sm font-medium text-concrete-50">Outputs</label>
-              <Input id="outputsPath" {...register("outputsPath")} placeholder="/path/to/outputs" aria-invalid={!!errors.outputsPath} />
-              {errors.outputsPath && <p className="text-xs text-ember">{errors.outputsPath.message}</p>}
+              <label
+                htmlFor="outputsPath"
+                className="text-sm font-medium text-concrete-50"
+              >
+                Outputs
+              </label>
+              <Input
+                id="outputsPath"
+                {...register("outputsPath")}
+                placeholder="/path/to/outputs"
+                aria-invalid={!!errors.outputsPath}
+              />
+              {errors.outputsPath && (
+                <p className="text-xs text-ember">
+                  {errors.outputsPath.message}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -199,78 +212,60 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
-              <label htmlFor="defaultModelId" className="text-sm font-medium text-concrete-50">Model</label>
-              <select id="defaultModelId" {...register("defaultModelId")}
-                className="flex h-9 w-full rounded-brutal border border-glass-border bg-concrete-800 px-3 py-1 text-sm text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric">
+              <label
+                htmlFor="defaultModelId"
+                className="text-sm font-medium text-concrete-50"
+              >
+                Model
+              </label>
+              <select
+                id="defaultModelId"
+                {...register("defaultModelId")}
+                className="flex h-9 w-full rounded-brutal border border-glass-border bg-concrete-800 px-3 py-1 text-sm text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric"
+              >
                 {S2_MODEL_MANIFEST.map((m) => (
-                  <option key={m.id} value={m.id}>{m.id} ({m.quant} — {m.displaySize})</option>
+                  <option key={m.id} value={m.id}>
+                    {m.id} ({m.quant} — {m.displaySize})
+                  </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1">
-              <label htmlFor="cpuThreads" className="text-sm font-medium text-concrete-50">CPU Threads</label>
-              <Input id="cpuThreads" type="number" min={1} max={256} {...register("cpuThreads")} />
+              <label
+                htmlFor="cpuThreads"
+                className="text-sm font-medium text-concrete-50"
+              >
+                CPU Threads
+              </label>
+              <Input
+                id="cpuThreads"
+                type="number"
+                min={1}
+                max={256}
+                {...register("cpuThreads")}
+              />
             </div>
             <div className="flex items-center gap-2">
-              <input id="gpuEnabled" type="checkbox" {...register("gpuEnabled")} className="h-4 w-4 accent-electric" />
-              <label htmlFor="gpuEnabled" className="text-sm font-medium text-concrete-50">Enable GPU</label>
+              <input
+                id="gpuEnabled"
+                type="checkbox"
+                {...register("gpuEnabled")}
+                className="h-4 w-4 accent-electric"
+              />
+              <label
+                htmlFor="gpuEnabled"
+                className="text-sm font-medium text-concrete-50"
+              >
+                Enable GPU
+              </label>
             </div>
           </CardContent>
         </Card>
 
-        {/* Advanced Mode */}
-        <Card>
-          <CardHeader
-            className="cursor-pointer select-none"
-            onClick={() => setShowAdvanced((v) => !v)}
-          >
-            <CardTitle className="flex items-center justify-between">
-              <span>Advanced</span>
-              <span className="text-sm font-mono text-concrete-300">
-                {showAdvanced ? "[-]" : "[+]"}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          {showAdvanced && (
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <input
-                  id="mode"
-                  type="checkbox"
-                  checked={watch("mode") === "advanced"}
-                  onChange={(e) =>
-                    setValue("mode", e.target.checked ? "advanced" : "simple", {
-                      shouldValidate: true,
-                    })
-                  }
-                  className="h-4 w-4 accent-electric"
-                />
-                <label htmlFor="mode" className="text-sm font-medium text-concrete-50">
-                  Advanced mode (show raw engine args)
-                </label>
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="advancedArgs" className="text-sm font-medium text-concrete-50">
-                  Advanced Args (JSON)
-                </label>
-                <textarea
-                  id="advancedArgs"
-                  value={advancedArgsText}
-                  onChange={(e) => handleAdvancedArgsChange(e.target.value)}
-                  rows={6}
-                  className="flex w-full rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2 font-mono text-sm text-concrete-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric"
-                  placeholder='{"--top_k": 40}'
-                />
-                {advancedArgsError && (
-                  <p className="text-xs text-ember">{advancedArgsError}</p>
-                )}
-              </div>
-            </CardContent>
-          )}
-        </Card>
-
         <div className="flex justify-end">
-          <Button type="submit" disabled={!isDirty || !isValid}>Save</Button>
+          <Button type="submit" disabled={!isDirty || !isValid}>
+            Save
+          </Button>
         </div>
       </form>
     </section>

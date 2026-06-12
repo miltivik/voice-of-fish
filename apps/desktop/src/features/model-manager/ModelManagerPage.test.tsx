@@ -16,17 +16,18 @@ describe("ModelManagerPage", () => {
     const user = userEvent.setup();
     // Dynamic mock: download_model updates the model list in-place
     let models = structuredClone(S2_MODEL_MANIFEST);
-    const invokeMock = (globalThis as Record<string, unknown>)
-      .__tauriInvoke as (cmd: string) => unknown;
-    (
-      invokeMock as {
-        mockImplementation: (f: (cmd: string) => unknown) => void;
+    const invokeMock = (
+      globalThis as unknown as {
+        __tauriInvoke: {
+          mockImplementation: (f: (cmd: string) => unknown) => void;
+        };
       }
-    ).mockImplementation((cmd: string) => {
+    ).__tauriInvoke;
+    invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "list_local_models") return structuredClone(models);
       if (cmd === "download_model") {
         // Mark Q5 as installed
-        models = models.map((m: { id: string; state: string }) =>
+        models = models.map((m) =>
           m.id === "s2-q5" ? { ...m, state: "installed" } : m,
         );
         return structuredClone(models);

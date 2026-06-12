@@ -5,8 +5,8 @@ const messages = {
     appTagline: "S2 Pro GGUF Studio",
     localOnlyBadge: "LOCAL ONLY",
 
-    /* --- Navigation --- */
     dashboard: "Dashboard",
+    generate: "Generate",
     voices: "Voices",
     models: "Models",
     history: "History",
@@ -393,8 +393,9 @@ export function t(
 ): string {
   const lang = currentLanguage;
   let message: string =
-    (messages[lang] as Record<string, string>)[key] ?? messages.en[key];
-
+    (messages[lang] as Record<string, string>)[key] ??
+    (messages.en as Record<string, string>)[key] ??
+    key;
   if (!params) {
     return message;
   }

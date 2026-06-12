@@ -131,7 +131,6 @@ export function VoiceCloningPage() {
             editingId={editing?.id ?? null}
             isLoading={presets.isLoading}
             isError={presets.isError}
-            searchQuery={search}
           />
         </CardContent>
       </Card>

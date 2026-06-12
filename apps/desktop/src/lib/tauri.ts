@@ -10,6 +10,7 @@ import type {
   HistoryRecord,
   ModelManifestEntry,
   ProcessLogLine,
+  SeedResult,
   SentenceClip,
   SystemInfo,
   VoicePreset,
@@ -175,7 +176,7 @@ export const studioClient = {
       modelId,
       voicePresetId,
     }),
-  seedBuiltInVoices: () => invoke("seed_built_in_voices"),
+  seedBuiltInVoices: () => invoke<SeedResult[] | null>("seed_built_in_voices"),
   exportEditorBundle: (clips: SentenceClip[], targetDir: string) =>
     invoke<string>("export_editor_bundle", { clips, targetDir }),
 

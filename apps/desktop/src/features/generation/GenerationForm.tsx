@@ -60,8 +60,8 @@ export function GenerationForm({
     setValue,
     watch,
     formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(generationRequestSchema) as Resolver<FormValues>,
+  } = useForm({
+    resolver: zodResolver(generationRequestSchema),
     defaultValues: {
       text: "",
       language: "en",
