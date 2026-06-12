@@ -56,43 +56,17 @@ describe("shared schemas", () => {
     ).toBe(42);
   });
 
-  it("retains primitive advanced settings arguments", () => {
-    const config = {
-      mode: "advanced",
-      binaryPath: "C:\\s2\\s2.exe",
-      modelsPath: "C:\\voice-of-fish\\models",
-      outputsPath: "C:\\voice-of-fish\\outputs",
-      defaultModelId: "s2-q8",
-      defaultAudioFormat: "wav",
-      cpuThreads: 8,
-      gpuEnabled: true,
-      advancedArgs: {
-        speed: 1.1,
-        verbose: true,
-        preset: "broadcast",
-      },
-    };
 
-    expect(settingsSchema.parse(config)).toEqual(config);
-  });
-
-  it("rejects non-primitive advanced settings arguments", () => {
+  it("validates language against supported list", () => {
     expect(() =>
-      settingsSchema.parse({
-        mode: "advanced",
-        binaryPath: "C:\\s2\\s2.exe",
-        modelsPath: "C:\\voice-of-fish\\models",
-        outputsPath: "C:\\voice-of-fish\\outputs",
-        defaultModelId: "s2-q8",
-        defaultAudioFormat: "wav",
-        cpuThreads: 8,
-        gpuEnabled: true,
-        advancedArgs: {
-          nested: { speed: 1.1 },
-        },
+      generationRequestSchema.parse({
+        text: "Hello",
+        modelId: "s2-q6",
+        language: "xx",
       }),
     ).toThrow();
   });
+
 
   it("defines first model quants and insertion tags", () => {
     expect(S2_MODEL_MANIFEST.map((model) => model.quant)).toEqual([

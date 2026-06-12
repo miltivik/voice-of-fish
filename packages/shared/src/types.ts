@@ -23,7 +23,7 @@ export interface AppConfig {
   defaultAudioFormat: AudioFormat;
   cpuThreads: number;
   gpuEnabled: boolean;
-  advancedArgs: Record<string, AdvancedArgValue>;
+  schemaVersion: number;
 }
 
 export interface ModelManifestEntry {
@@ -109,9 +109,10 @@ export interface SentenceClip {
   wavPath: string;
 }
 
-export type AdvancedArgValue = string | number | boolean;
 
 export type VoiceGender = "female" | "male";
+
+export interface BuiltInVoice {
   id: string;
   name: string;
   gender: VoiceGender;
@@ -123,7 +124,6 @@ export type VoiceGender = "female" | "male";
   referenceFileName: string;
   /** Approximate duration of the reference audio in seconds. */
   durationSeconds: number;
-
 }
 
 export interface SeedResult {
@@ -131,5 +131,4 @@ export interface SeedResult {
   name: string;
   success: boolean;
   error?: string;
-}
 }

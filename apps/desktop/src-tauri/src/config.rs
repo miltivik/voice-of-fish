@@ -146,7 +146,6 @@ pub fn get_default_config() -> AppConfig {
         default_audio_format: AudioFormat::Wav,
         cpu_threads: 8,
         gpu_enabled: true,
-        advanced_args: Default::default(),
         schema_version: CURRENT_SCHEMA_VERSION,
     }
 }
@@ -172,7 +171,7 @@ mod tests {
         assert_eq!(config.default_audio_format, AudioFormat::Wav);
         assert_eq!(config.cpu_threads, 8);
         assert!(config.gpu_enabled);
-        assert!(config.advanced_args.is_empty());
+        assert!(config.schema_version == CURRENT_SCHEMA_VERSION);
     }
 
     #[test]

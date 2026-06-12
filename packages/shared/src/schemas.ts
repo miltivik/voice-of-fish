@@ -36,14 +36,6 @@ const optionalSeed = z.preprocess(
 );
 
 const appModeSchema = z.enum(["simple", "advanced"]).default("simple");
-const advancedArgValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-]);
-const advancedArgsSchema = z
-  .record(z.string(), advancedArgValueSchema)
-  .default({});
 
 export const setupSchema = z.object({
   mode: appModeSchema,
@@ -57,12 +49,12 @@ export const appConfigSchema = setupSchema.extend({
   defaultAudioFormat: z.literal("wav").default("wav"),
   cpuThreads: z.coerce.number().int().min(1).max(CPU_THREADS_MAX),
   gpuEnabled: z.boolean(),
-  advancedArgs: advancedArgsSchema,
+  schemaVersion: z.number().int().default(0),
 });
 
 export const generationRequestSchema = z.object({
   text: nonBlank.max(TEXT_MAX_LENGTH),
-  language: nonBlank,
+  language: z.enum(SUPPORTED_LANGUAGES),
   modelId: nonBlank,
   seed: optionalSeed,
   voicePresetId: z.string().optional(),

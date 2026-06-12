@@ -7,7 +7,7 @@ export const DEFAULT_APP_CONFIG = {
   defaultAudioFormat: "wav",
   cpuThreads: 8,
   gpuEnabled: true,
-  advancedArgs: {},
+  schemaVersion: 1,
 } as const;
 
 import type { HistoryRecord, ModelManifestEntry } from "./types";
