@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+
 /// Maximum text length for a generation request (characters).
 pub const MAX_TEXT_LENGTH: usize = 8_000;
 /// Minimum text length for a generation request.
