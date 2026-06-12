@@ -10,11 +10,11 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             // Initialize the config store with defaults on first run.
-            if let Err(e) = config::init_config(&app.handle()) {
+            if let Err(e) = config::init_config(app.handle()) {
                 eprintln!("Voice of Fish: config init warning: {e}");
             }
             // Clean up orphaned jobs from a previous crash.
-            let cfg = config::load_app_config(&app.handle()).unwrap_or_else(|_| config::get_default_config());
+            let cfg = config::load_app_config(app.handle()).unwrap_or_else(|_| config::get_default_config());
             process::reap_orphan_jobs(&cfg.outputs_path);
             Ok(())
         })
@@ -38,7 +38,6 @@ fn main() {
             voice_of_fish_desktop::commands::list_generation_history,
             voice_of_fish_desktop::commands::delete_history_record,
             voice_of_fish_desktop::commands::clear_history,
-            voice_of_fish_desktop::commands::get_log_file_path,
             voice_of_fish_desktop::commands::list_voice_presets,
             voice_of_fish_desktop::commands::delete_voice_preset,
             voice_of_fish_desktop::commands::generate_sentences,

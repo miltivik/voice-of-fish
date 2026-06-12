@@ -109,7 +109,7 @@ pub fn validate_url(url: &str) -> Result<(), String> {
     // Host ends at the first `/`, `?`, `#`, or end of string. Lowercase
     // for case-insensitive comparison. Strip an optional `:port`.
     let host_end = rest
-        .find(|c: char| c == '/' || c == '?' || c == '#')
+        .find(['/', '?', '#'])
         .unwrap_or(rest.len());
     let raw_host = &rest[..host_end];
     let host = raw_host

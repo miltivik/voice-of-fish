@@ -138,16 +138,16 @@ pub fn run_generation(
     // Resolve voice preset → reference audio path + text if not already provided.
     // The helper validates that reference_audio_path stays within outputs_path.
     let mut resolved_request = request.clone();
-    if resolved_request.voice_preset_id.is_some()
-        && resolved_request.reference_audio_path.is_none()
-    {
-        if let Some((audio_path, ref_text)) = presets::resolve_preset_reference(
-            &cfg.outputs_path,
-            resolved_request.voice_preset_id.as_ref().unwrap(),
-        )? {
-            resolved_request.reference_audio_path = Some(audio_path);
-            if resolved_request.reference_text.is_none() {
-                resolved_request.reference_text = Some(ref_text);
+    if let Some(preset_id) = resolved_request.voice_preset_id.as_deref() {
+        if resolved_request.reference_audio_path.is_none() {
+            if let Some((audio_path, ref_text)) = presets::resolve_preset_reference(
+                &cfg.outputs_path,
+                preset_id,
+            )? {
+                resolved_request.reference_audio_path = Some(audio_path);
+                if resolved_request.reference_text.is_none() {
+                    resolved_request.reference_text = Some(ref_text);
+                }
             }
         }
     }
@@ -305,26 +305,6 @@ pub fn read_generation_logs(
     }
 }
 
-/// Returns the on-disk log file path for a job, if it exists.
-#[tauri::command(rename_all = "camelCase")]
-pub fn get_log_file_path(
-    job_id: String,
-    app: tauri::AppHandle,
-) -> Option<String> {
-    if validate_job_id(&job_id).is_err() {
-        return None;
-    }
-    let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
-    let log_path = std::path::PathBuf::from(&cfg.outputs_path)
-        .join(".voice-of-fish")
-        .join("logs")
-        .join(format!("{job_id}.log"));
-    if log_path.exists() {
-        Some(log_path.to_string_lossy().to_string())
-    } else {
-        None
-    }
-}
 #[tauri::command(rename_all = "camelCase")]
 pub fn open_output_folder(path: String, app: tauri::AppHandle) -> Result<(), String> {
     let cfg = config::load_app_config(&app)?;

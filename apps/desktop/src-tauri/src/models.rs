@@ -84,7 +84,7 @@ impl AppConfig {
     pub fn expand_tilde(path: &str) -> String {
         if path.starts_with('~') {
             if let Some(home) = dirs::home_dir() {
-                return home.to_string_lossy().to_string() + &path[1..];
+                return home.to_string_lossy().to_string() + path.strip_prefix('~').unwrap_or("");
             }
         }
         path.to_string()
@@ -624,7 +624,7 @@ pub fn split_sentences(text: &str) -> Vec<String> {
         if c == '.' || c == '!' || c == '?' {
             // Check if this is a sentence-ending punctuation
             let next = text[i + c.len_utf8()..].chars().next();
-            if next.map_or(true, |n| n.is_whitespace()) {
+            if next.is_none_or(|n| n.is_whitespace()) {
                 sentences.push(text[start..i + c.len_utf8()].trim().to_string());
                 start = i + c.len_utf8();
             }

@@ -135,6 +135,7 @@ pub fn sanitize_log_message(raw: &str) -> String {
     }
 }
 
+#[derive(Default)]
 pub struct ProcessManager {
     pub child: Option<std::process::Child>,
     pub active_job: Option<GenerationJob>,
@@ -145,7 +146,6 @@ pub struct ProcessManager {
     log_file_path: Option<PathBuf>,
     pub pid_file_path: Option<PathBuf>,
 }
-
 impl Drop for ProcessManager {
     fn drop(&mut self) {
         if let Some(ref mut child) = self.child {
@@ -158,20 +158,6 @@ impl Drop for ProcessManager {
     }
 }
 
-impl Default for ProcessManager {
-    fn default() -> Self {
-        Self {
-            child: None,
-            active_job: None,
-            started_at: None,
-            log_lines: VecDeque::new(),
-            log_rx: None,
-            handles: Vec::new(),
-            log_file_path: None,
-            pid_file_path: None,
-        }
-    }
-}
 
 impl ProcessManager {
     pub fn spawn_generation(
@@ -228,7 +214,7 @@ impl ProcessManager {
         if let Some(stdout) = child.stdout.take() {
             let mut seq = 0u64;
             self.handles.push(std::thread::spawn(move || {
-                for line in BufReader::new(stdout).lines().flatten() {
+                for line in BufReader::new(stdout).lines().map_while(Result::ok) {
                     let _ = tx_out.send(GenerationLogLine {
                         id: format!("{}-stdout-{}", jid_out, seq),
                         stream: LogStream::Stdout,
@@ -243,7 +229,7 @@ impl ProcessManager {
         if let Some(stderr) = child.stderr.take() {
             let mut seq = 0u64;
             self.handles.push(std::thread::spawn(move || {
-                for line in BufReader::new(stderr).lines().flatten() {
+                for line in BufReader::new(stderr).lines().map_while(Result::ok) {
                     let _ = tx_err.send(GenerationLogLine {
                         id: format!("{}-stderr-{}", jid_err, seq),
                         stream: LogStream::Stderr,
@@ -254,10 +240,8 @@ impl ProcessManager {
                 }
             }));
         }
-
         let now = Utc::now();
         let now_str = now.to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-
         let job = GenerationJob {
             text: request.text.clone(),
             language: request.language.clone(),
@@ -440,7 +424,7 @@ pub fn reap_orphan_jobs(outputs_path: &str) {
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().map_or(true, |e| e != "pid") {
+        if path.extension().is_none_or(|e| e != "pid") {
             continue;
         }
 
@@ -451,7 +435,6 @@ pub fn reap_orphan_jobs(outputs_path: &str) {
                 continue;
             }
         };
-
         let pid: u32 = match pid_str.parse() {
             Ok(p) => p,
             Err(_) => {
