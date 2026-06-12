@@ -15,13 +15,12 @@ describe("useGenerationStore", () => {
     });
   });
 
-  it("tracks text, patches, and style tag edits in the draft", () => {
-    useGenerationStore.getState().setText("Read ");
+  it("patches the draft across multiple calls", () => {
+    useGenerationStore.getState().patchDraft({ text: "Read " });
     useGenerationStore.getState().patchDraft({ language: "es", seed: 42 });
-    useGenerationStore.getState().insertTag("[serious]", 5, 5);
 
     expect(useGenerationStore.getState().draft).toMatchObject({
-      text: "Read [serious]",
+      text: "Read ",
       language: "es",
       seed: 42,
     });

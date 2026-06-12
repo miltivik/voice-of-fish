@@ -7,7 +7,7 @@ import type {
   ModelManifestEntry,
   VoicePreset,
 } from "@voice-of-fish/shared";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -53,24 +53,27 @@ export function GenerationForm({
     onCompletedJob: onJobComplete,
   });
 
+  const storeDraft = useGenerationStore((state) => state.draft);
   const {
     register,
     handleSubmit,
     getValues,
     setValue,
     watch,
+    reset,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(generationRequestSchema),
-    defaultValues: {
-      text: "",
-      language: "en",
-      modelId: "s2-q6",
-    },
+    defaultValues: { ...storeDraft },
   });
+  // Re-sync the form when a HistoryPage retry writes a new draft while
+  // this component is already mounted (e.g. SPA navigation reuses the
+  // component instance). Without this the form keeps stale values and the
+  // retry looks like a no-op to the user.
+  useEffect(() => {
+    reset(storeDraft);
+  }, [storeDraft, reset]);
   const voicePresetId = (watch("voicePresetId") as string | undefined) ?? "";
-
-  const status = useGenerationStore((state) => state.status);
 
   const generation = useMutation({
     mutationFn: studioClient.runGeneration,
