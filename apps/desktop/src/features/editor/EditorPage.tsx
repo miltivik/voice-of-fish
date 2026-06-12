@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { SentenceClip } from "@voice-of-fish/shared";
 import { toast } from "sonner";
-import { convertFileSrc } from "@tauri-apps/api/core";
+
 import { studioClient, pickFolderPath } from "@/lib/tauri";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +31,7 @@ function splitSubtitleLines(text: string, maxLine = 42): string {
   return `${first}\n${second}`;
 }
 
- function formatSrt(clips: SentenceClip[]): string {
+function formatSrt(clips: SentenceClip[]): string {
   return clips
     .map((clip, i) => {
       const start = formatTime(clip.startMs).replace(".", ",");
@@ -54,13 +54,13 @@ function ClipItem({
   widthPercent: number;
   totalDuration: number;
   onUpdateClipText: (index: number, text: string) => void;
-  onPlayAudio: (wavPath: string) => void;
+  onPlayAudio: (wavPath: string) => Promise<void> | void;
 }) {
   return (
-    <div
-      className="flex items-center gap-3 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2"
-    >
-      <span className="w-6 text-center text-xs tabular-nums text-concrete-300">{i + 1}</span>
+    <div className="flex items-center gap-3 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2">
+      <span className="w-6 text-center text-xs tabular-nums text-concrete-300">
+        {i + 1}
+      </span>
       <div className="min-w-0 flex-1">
         <input
           value={clip.text}
@@ -71,7 +71,9 @@ function ClipItem({
         <p className="mt-0.5 text-xs text-concrete-300">
           {formatTime(clip.startMs)} → {formatTime(clip.endMs)}
           {" · "}
-          {duration < 1000 ? `${duration}ms` : `${(duration / 1000).toFixed(1)}s`}
+          {duration < 1000
+            ? `${duration}ms`
+            : `${(duration / 1000).toFixed(1)}s`}
         </p>
         <button
           type="button"
@@ -85,14 +87,15 @@ function ClipItem({
           className="h-2 rounded-full bg-electric/30"
           style={{ width: `${widthPercent}%`, maxWidth: 120 }}
         >
-          <div className="h-full rounded-full bg-electric" style={{ width: "100%" }} />
+          <div
+            className="h-full rounded-full bg-electric"
+            style={{ width: "100%" }}
+          />
         </div>
       </div>
     </div>
   );
 }
-
-
 
 export function EditorPage() {
   const [script, setScript] = useState("");
@@ -102,23 +105,40 @@ export function EditorPage() {
   const [clips, setClips] = useState<SentenceClip[]>([]);
   const [regenKey, setRegenKey] = useState(0);
 
-  // Cleanup audio on unmount.
+  // Cleanup audio + revoke blob URLs on unmount.
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
   useEffect(() => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.removeAttribute("src");
+        audioRef.current.load();
         audioRef.current = null;
+      }
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
       }
     };
   }, []);
 
-  function playClipAudio(wavPath: string) {
+  async function playClipAudio(wavPath: string) {
     try {
+      // Destroy previous audio instance to prevent memory leaks.
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.removeAttribute("src");
+        audioRef.current.load();
+        audioRef.current = null;
       }
-      const url = convertFileSrc(wavPath);
+      // Revoke any previous blob URL so we don't leak memory.
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+      const url = await studioClient.readAudioBytes(wavPath);
+      blobUrlRef.current = url;
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.play().catch(() => {
@@ -144,7 +164,12 @@ export function EditorPage() {
 
   const generateMutation = useMutation({
     mutationFn: () =>
-      studioClient.generateSentences(script, language, modelId, voicePresetId || undefined),
+      studioClient.generateSentences(
+        script,
+        language,
+        modelId,
+        voicePresetId || undefined,
+      ),
     onSuccess: (data) => {
       setClips(data);
       setRegenKey((k) => k + 1);
@@ -156,12 +181,13 @@ export function EditorPage() {
     },
   });
 
-  const totalDuration = clips.reduce((sum, c) => sum + (c.endMs - c.startMs), 0);
+  const totalDuration = clips.reduce(
+    (sum, c) => sum + (c.endMs - c.startMs),
+    0,
+  );
 
   function updateClipText(index: number, text: string) {
-    setClips((prev) =>
-      prev.map((c, i) => (i === index ? { ...c, text } : c)),
-    );
+    setClips((prev) => prev.map((c, i) => (i === index ? { ...c, text } : c)));
   }
 
   const sentenceCount = script
@@ -184,6 +210,7 @@ export function EditorPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <textarea
+            aria-label="Script text"
             value={script}
             onChange={(e) => setScript(e.target.value)}
             rows={8}
@@ -193,7 +220,12 @@ export function EditorPage() {
 
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <label htmlFor="editor-model" className="text-xs font-medium text-concrete-300">Model</label>
+              <label
+                htmlFor="editor-model"
+                className="text-xs font-medium text-concrete-300"
+              >
+                Model
+              </label>
               <select
                 id="editor-model"
                 value={modelId}
@@ -201,13 +233,20 @@ export function EditorPage() {
                 className="h-8 rounded-brutal border border-glass-border bg-concrete-800 px-2 text-xs text-concrete-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-electric"
               >
                 {installedModels.map((m) => (
-                  <option key={m.id} value={m.id}>{m.quant}</option>
+                  <option key={m.id} value={m.id}>
+                    {m.quant}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div className="flex items-center gap-2">
-              <label htmlFor="editor-voice" className="text-xs font-medium text-concrete-300">Voice</label>
+              <label
+                htmlFor="editor-voice"
+                className="text-xs font-medium text-concrete-300"
+              >
+                Voice
+              </label>
               <select
                 id="editor-voice"
                 value={voicePresetId}
@@ -216,19 +255,32 @@ export function EditorPage() {
               >
                 <option value="">None</option>
                 {(presets.data ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div className="flex items-center gap-2">
-              <label htmlFor="editor-language" className="text-xs font-medium text-concrete-300">Language</label>
-              <LanguageSelect id="language" value={language} onChange={(e) => setLanguage(e.target.value)} />
+              <label
+                htmlFor="editor-language"
+                className="text-xs font-medium text-concrete-300"
+              >
+                Language
+              </label>
+              <LanguageSelect
+                id="language"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              />
             </div>
 
             <Button
               onClick={() => generateMutation.mutate()}
-              disabled={generateMutation.isPending || script.trim().length === 0}
+              disabled={
+                generateMutation.isPending || script.trim().length === 0
+              }
             >
               {generateMutation.isPending
                 ? `Generating ${sentenceCount} sentence(s)…`
@@ -243,14 +295,17 @@ export function EditorPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>
-              Timeline · {clips.length} clip(s) · Total {formatTime(totalDuration)}
+              Timeline · {clips.length} clip(s) · Total{" "}
+              {formatTime(totalDuration)}
             </CardTitle>
             <div className="flex gap-2">
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => {
-                  navigator.clipboard.writeText(formatSrt(clips)).catch(() => {});
+                  navigator.clipboard
+                    .writeText(formatSrt(clips))
+                    .catch(() => {});
                   toast.success("SRT copied to clipboard");
                 }}
               >
@@ -263,7 +318,10 @@ export function EditorPage() {
                   const dir = await pickFolderPath("Select export folder");
                   if (!dir) return;
                   try {
-                    const msg = await studioClient.exportEditorBundle(clips, dir);
+                    const msg = await studioClient.exportEditorBundle(
+                      clips,
+                      dir,
+                    );
                     toast.success(msg);
                   } catch (e) {
                     toast.error(`Export failed: ${e}`);
@@ -284,7 +342,10 @@ export function EditorPage() {
                   duration={clip.endMs - clip.startMs}
                   widthPercent={
                     totalDuration > 0
-                      ? Math.max(((clip.endMs - clip.startMs) / totalDuration) * 100, 2)
+                      ? Math.max(
+                          ((clip.endMs - clip.startMs) / totalDuration) * 100,
+                          2,
+                        )
                       : 100 / clips.length
                   }
                   totalDuration={totalDuration}

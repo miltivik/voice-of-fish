@@ -74,3 +74,34 @@ describe("pickBinaryPath", () => {
     );
   });
 });
+
+describe("studioClient.readAudioBytes", () => {
+  it("returns a blob: URL after invoking read_audio_bytes", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const { studioClient } = await import("./tauri");
+    const fakeBytes = [82, 73, 70, 70]; // "RIFF"
+    vi.mocked(invoke).mockResolvedValueOnce(fakeBytes);
+
+    const url = await studioClient.readAudioBytes("/safe/clip.wav");
+    expect(invoke).toHaveBeenCalledWith("read_audio_bytes", {
+      path: "/safe/clip.wav",
+    });
+    expect(url).toMatch(/^blob:/);
+  });
+
+  it("studioClient.importModelFile calls import_model_file with source + filename", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const { studioClient } = await import("./tauri");
+    vi.mocked(invoke).mockResolvedValueOnce("/models/foo.gguf");
+
+    const result = await studioClient.importModelFile(
+      "/drop/foo.gguf",
+      "foo.gguf",
+    );
+    expect(invoke).toHaveBeenCalledWith("import_model_file", {
+      sourcePath: "/drop/foo.gguf",
+      fileName: "foo.gguf",
+    });
+    expect(result).toBe("/models/foo.gguf");
+  });
+});

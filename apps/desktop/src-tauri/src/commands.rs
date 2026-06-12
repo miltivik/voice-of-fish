@@ -12,6 +12,51 @@ use crate::process::ProcessManager;
 use std::sync::Mutex;
 use tauri::State;
 
+/// Returns `Ok(())` if `job_id` is safe to use as a path component, or an
+/// `Err` describing the rejection. The rule is deliberately tight: a job id
+/// is server-generated (`job-{ms}`) and any other shape is a renderer-side
+/// mistake or a hostile attempt to break out of a path with `..` or NUL.
+pub fn validate_job_id(job_id: &str) -> Result<(), String> {
+    if job_id.is_empty() {
+        return Err("job_id is empty".to_string());
+    }
+    if job_id.len() > 64 {
+        return Err("job_id exceeds 64 characters".to_string());
+    }
+    if !job_id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(format!(
+            "job_id must match [A-Za-z0-9_-]+, got: {job_id:?}"
+        ));
+    }
+    Ok(())
+}
+
+/// Returns `Ok(())` if `preset_id` is safe to persist as a JSON key in
+/// `presets.json`, or an `Err` describing the rejection. Same shape as
+/// `validate_job_id` but with a longer ceiling since voice preset ids
+/// are user-visible (e.g. "dave-warm-narration"). A renderer-side XSS
+/// cannot inject path traversal or NUL bytes through this entry point.
+pub fn validate_preset_id(preset_id: &str) -> Result<(), String> {
+    if preset_id.is_empty() {
+        return Err("preset_id is empty".to_string());
+    }
+    if preset_id.len() > 128 {
+        return Err("preset_id exceeds 128 characters".to_string());
+    }
+    if !preset_id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(format!(
+            "preset_id must match [A-Za-z0-9_-]+, got: {preset_id:?}"
+        ));
+    }
+    Ok(())
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_system_info(app: tauri::AppHandle) -> SystemInfo {
     diagnostics::get_real_system_info(&app)
@@ -112,6 +157,9 @@ pub fn run_generation(
         crate::output_paths::validate_within_outputs(&cfg.outputs_path, path)?;
     }
     let job_id = format!("job-{}", chrono::Utc::now().timestamp_millis());
+    // Tripwire: if a future refactor ever changes the job_id format, refuse
+    // to start a generation whose id isn't safe to use as a path component.
+    validate_job_id(&job_id)?;
     let spec = crate::process::GenerationCommandSpec::from_request(
         &resolved_request, &cfg, model, &job_id,
     );
@@ -137,6 +185,10 @@ pub fn cancel_generation(
     job_id: String,
     process_manager: State<'_, Mutex<ProcessManager>>,
 ) -> bool {
+    // Reject renderer-supplied job_ids that aren't safe path components.
+    if validate_job_id(&job_id).is_err() {
+        return false;
+    }
     // Extract the child from the manager, release the lock, then kill/wait.
     let child = {
         let mut manager = match process_manager.lock() {
@@ -216,6 +268,10 @@ pub fn read_generation_logs(
     manager.check_completion();
 
     if let Some(ref jid) = job_id {
+        // Reject job_ids that aren't safe path components.
+        if validate_job_id(jid).is_err() {
+            return vec![];
+        }
         let in_memory: Vec<GenerationLogLine> = manager
             .log_lines
             .iter()
@@ -255,6 +311,9 @@ pub fn get_log_file_path(
     job_id: String,
     app: tauri::AppHandle,
 ) -> Option<String> {
+    if validate_job_id(&job_id).is_err() {
+        return None;
+    }
     let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
     let log_path = std::path::PathBuf::from(&cfg.outputs_path)
         .join(".voice-of-fish")
@@ -278,6 +337,30 @@ pub fn open_file_path(path: String, app: tauri::AppHandle) -> Result<(), String>
     let cfg = config::load_app_config(&app)?;
     cfg.validate_paths()?;
     crate::output_paths::open_file_path(&cfg.outputs_path, &path)
+}
+
+/// Returns the WAV bytes for a file inside `outputs_path`. Used by the renderer
+/// to play generated audio without needing the `asset://` protocol.
+#[tauri::command(rename_all = "camelCase")]
+pub fn read_audio_bytes(path: String, app: tauri::AppHandle) -> Result<Vec<u8>, String> {
+    let cfg = config::load_app_config(&app)?;
+    cfg.validate_paths()?;
+    crate::audio_io::read_audio_bytes(&cfg.outputs_path, &path)
+}
+
+/// Imports a GGUF model file (e.g. from drag-and-drop) into `models_path`.
+/// Validates the source path, the destination, and the file size before
+/// copying. Returns the canonical destination path on success.
+#[tauri::command(rename_all = "camelCase")]
+pub fn import_model_file(
+    source_path: String,
+    file_name: String,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let cfg = config::load_app_config(&app)?;
+    cfg.validate_paths()?;
+    let dest = crate::audio_io::import_model_file(&cfg.models_path, &source_path, &file_name)?;
+    Ok(dest.to_string_lossy().to_string())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -363,14 +446,21 @@ pub fn check_directory_exists(dir_path: String) -> bool {
 
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn pick_folder(_title: Option<String>, app: tauri::AppHandle) -> Option<String> {
+pub async fn pick_folder(title: Option<String>, app: tauri::AppHandle) -> Option<String> {
     use tauri_plugin_dialog::DialogExt;
     let (tx, rx) = tokio::sync::oneshot::channel();
-    app.dialog()
-        .file()
-        .pick_folder(move |result| {
-            let _ = tx.send(result);
-        });
+    // Truncate the title to a reasonable bound — the native dialog truncates
+    // safely but a multi-MB string still wastes cycles on the IPC bridge.
+    let bounded_title = title
+        .map(|t| t.chars().take(128).collect::<String>())
+        .filter(|t: &String| !t.is_empty());
+    let mut builder = app.dialog().file();
+    if let Some(t) = bounded_title {
+        builder = builder.set_title(t);
+    }
+    builder.pick_folder(move |result| {
+        let _ = tx.send(result);
+    });
     rx.await
         .ok()
         .flatten()
@@ -423,8 +513,29 @@ pub fn delete_history_record(
     job_id: String,
     app: tauri::AppHandle,
 ) -> Result<bool, String> {
+    validate_job_id(&job_id)?;
     let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
     history::delete_history(&cfg.outputs_path, &job_id).map(|_| true)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn save_voice_preset(
+    preset: VoicePreset,
+    app: tauri::AppHandle,
+) -> Result<VoicePreset, String> {
+    let cfg = config::load_app_config(&app)?;
+    validate_preset_id(&preset.id)?;
+    presets::save_preset(&cfg.outputs_path, &preset)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn delete_voice_preset(
+    id: String,
+    app: tauri::AppHandle,
+) -> Result<bool, String> {
+    let cfg = config::load_app_config(&app)?;
+    validate_preset_id(&id)?;
+    presets::delete_preset(&cfg.outputs_path, &id)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -439,24 +550,6 @@ pub fn clear_history(app: tauri::AppHandle) -> Result<bool, String> {
 pub fn list_voice_presets(app: tauri::AppHandle) -> Vec<VoicePreset> {
     let cfg = config::load_app_config(&app).unwrap_or_else(|_| config::get_default_config());
     presets::list_presets(&cfg.outputs_path)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub fn save_voice_preset(
-    preset: VoicePreset,
-    app: tauri::AppHandle,
-) -> Result<VoicePreset, String> {
-    let cfg = config::load_app_config(&app)?;
-    presets::save_preset(&cfg.outputs_path, &preset)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub fn delete_voice_preset(
-    id: String,
-    app: tauri::AppHandle,
-) -> Result<bool, String> {
-    let cfg = config::load_app_config(&app)?;
-    presets::delete_preset(&cfg.outputs_path, &id)
 }
 
 /// Export editor clips, SRT, and DaVinci import script to a folder.
@@ -490,10 +583,60 @@ fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
 }
 
 
+    #[test]
+    fn validate_preset_id_accepts_user_visible_ids() {
+        assert!(validate_preset_id("dave-warm-narration").is_ok());
+        assert!(validate_preset_id("preset-1").is_ok());
+        assert!(validate_preset_id("a_b-c_1").is_ok());
+    }
+
+    #[test]
+    fn validate_preset_id_rejects_traversal_and_separators() {
+        assert!(validate_preset_id("../../../etc/passwd").is_err());
+        assert!(validate_preset_id("foo/bar").is_err());
+        assert!(validate_preset_id("foo\\bar").is_err());
+        assert!(validate_preset_id("foo\0bar").is_err());
+    }
+
+    #[test]
+    fn validate_preset_id_rejects_empty_and_oversize() {
+        assert!(validate_preset_id("").is_err());
+        let long = "a".repeat(129);
+        assert!(validate_preset_id(&long).is_err());
+    }
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+
+    #[test]
+    fn validate_job_id_accepts_normal_ids() {
+        assert!(validate_job_id("job-1700000000000").is_ok());
+        assert!(validate_job_id("job-1").is_ok());
+        assert!(validate_job_id("a_b-c_1").is_ok());
+    }
+
+    #[test]
+    fn validate_job_id_rejects_traversal() {
+        assert!(validate_job_id("../../../etc/passwd").is_err());
+        assert!(validate_job_id("..").is_err());
+        assert!(validate_job_id(".").is_err());
+    }
+
+    #[test]
+    fn validate_job_id_rejects_separators_and_nul() {
+        assert!(validate_job_id("foo/bar").is_err());
+        assert!(validate_job_id("foo\\bar").is_err());
+        assert!(validate_job_id("foo\0bar").is_err());
+    }
+
+    #[test]
+    fn validate_job_id_rejects_empty_and_oversize() {
+        assert!(validate_job_id("").is_err());
+        let long = "a".repeat(65);
+        assert!(validate_job_id(&long).is_err());
+    }
     #[test]
     fn check_binary_exists_empty_string() {
         assert!(!check_binary_exists("".to_string()));
@@ -747,9 +890,20 @@ pub fn generate_sentences(
             .stderr(std::process::Stdio::null())
             .spawn()
             .map_err(|e| format!("failed to spawn engine for sentence {i}: {e}"))?;
-        let status = child
-            .wait()
-            .map_err(|e| format!("engine crashed for sentence {i}: {e}"))?;
+        // Wait with timeout (120s per sentence) to prevent indefinite hangs.
+        let timeout = std::time::Duration::from_secs(120);
+        let start = std::time::Instant::now();
+        let status = loop {
+            if let Some(s) = child.try_wait().map_err(|e| format!("engine wait error for sentence {i}: {e}"))? {
+                break s;
+            }
+            if start.elapsed() >= timeout {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("engine timed out after 120s for sentence {i}"));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        };
         if !status.success() {
             return Err(format!(
                 "engine exited with code {} for sentence {}",

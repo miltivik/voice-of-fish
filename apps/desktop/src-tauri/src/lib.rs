@@ -1,4 +1,6 @@
 pub mod output_paths;
+pub mod audio_io;
+pub mod secure_url;
 pub mod commands;
 pub mod config;
 pub mod diagnostics;

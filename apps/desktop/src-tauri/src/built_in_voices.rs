@@ -99,21 +99,6 @@ pub struct SeedResult {
     pub error: Option<String>,
 }
 
-/// Downloads a file from a URL to a local path using ureq.
-fn download_file(url: &str, dest: &PathBuf) -> Result<(), String> {
-    let response = ureq::get(url)
-        .call()
-        .map_err(|e| format!("download request failed: {e}"))?;
-
-    let mut reader = response.into_body().into_reader();
-    let mut file = std::fs::File::create(dest)
-        .map_err(|e| format!("failed to create file: {e}"))?;
-
-    std::io::copy(&mut reader, &mut file)
-        .map_err(|e| format!("failed to write file: {e}"))?;
-
-    Ok(())
-}
 
 /// Seeds built-in voices into the presets system.
 ///
@@ -157,8 +142,12 @@ pub fn seed_built_in_voices(outputs_path: &str) -> Vec<SeedResult> {
 
             let ref_path = ref_dir.join(&voice.reference_file_name);
 
-            // Download reference audio.
-            if let Err(e) = download_file(&voice.reference_audio_url, &ref_path) {
+            // Download reference audio with scheme + host + size guard.
+            if let Err(e) = crate::secure_url::download_to_path(
+                &voice.reference_audio_url,
+                crate::secure_url::MAX_BUILTIN_REFERENCE_BYTES,
+                &ref_path,
+            ) {
                 return SeedResult {
                     voice_id: voice.id,
                     name: voice.name,

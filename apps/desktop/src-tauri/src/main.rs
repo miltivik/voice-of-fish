@@ -5,7 +5,7 @@ use voice_of_fish_desktop::process;
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
+
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
@@ -39,10 +39,12 @@ fn main() {
             voice_of_fish_desktop::commands::delete_history_record,
             voice_of_fish_desktop::commands::clear_history,
             voice_of_fish_desktop::commands::get_log_file_path,
-            voice_of_fish_desktop::commands::save_voice_preset,
+            voice_of_fish_desktop::commands::list_voice_presets,
             voice_of_fish_desktop::commands::delete_voice_preset,
             voice_of_fish_desktop::commands::generate_sentences,
             voice_of_fish_desktop::commands::export_editor_bundle,
+            voice_of_fish_desktop::commands::read_audio_bytes,
+            voice_of_fish_desktop::commands::import_model_file,
             voice_of_fish_desktop::commands::seed_built_in_voices,
         ])
         .run(tauri::generate_context!())

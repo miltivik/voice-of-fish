@@ -14,6 +14,26 @@ const MAX_LOG_LINES: usize = 5000;
 /// unbounded memory growth when the UI polls logs slowly.
 const LOG_CHANNEL_CAP: usize = 4096;
 
+/// Build a safe `<job_id>.<ext>` filename for use under `outputs_path`.
+/// If `job_id` is not a valid path component (contains path separators,
+/// NUL bytes, etc.), this returns an error rather than silently building
+/// a path that escapes the outputs directory.
+fn safe_job_filename(job_id: &str, ext: &str) -> Result<PathBuf, String> {
+    if job_id.is_empty() {
+        return Err("job_id is empty".to_string());
+    }
+    if job_id.contains('\0')
+        || job_id.contains('/')
+        || job_id.contains('\\')
+        || job_id.contains("..")
+        || job_id == "."
+    {
+        return Err(format!("unsafe job_id: {job_id:?}"));
+    }
+    let ext = ext.trim_start_matches('.');
+    Ok(PathBuf::from(format!("{job_id}.{ext}")))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerationCommandSpec {
@@ -171,24 +191,31 @@ impl ProcessManager {
         let pids_dir = PathBuf::from(outputs_path).join(".voice-of-fish").join("pids");
         if let Err(e) = std::fs::create_dir_all(&pids_dir) {
             eprintln!("[ProcessManager] failed to create pids dir: {e}");
-        } else {
-            let pid_path = pids_dir.join(format!("{job_id}.pid"));
+        } else if let Ok(safe_name) = safe_job_filename(job_id, "pid") {
+            let pid_path = pids_dir.join(safe_name);
             if let Err(e) = std::fs::write(&pid_path, pid.to_string()) {
                 eprintln!("[ProcessManager] failed to write PID file {}: {e}", pid_path.display());
             } else {
                 self.pid_file_path = Some(pid_path);
             }
+        } else {
+            // safe_job_filename rejected job_id — the IPC layer should have
+            // caught this. Panic loudly: better to abort the generation
+            // than to write a file outside the pids directory.
+            panic!("process::spawn_generation called with unsafe job_id: {job_id:?}");
         }
 
         // Create log file for crash recovery (persist all log lines to disk).
         let logs_dir = PathBuf::from(outputs_path).join(".voice-of-fish").join("logs");
         if let Err(e) = std::fs::create_dir_all(&logs_dir) {
             eprintln!("[ProcessManager] failed to create logs dir: {e}");
-        } else {
-            let log_path = logs_dir.join(format!("{job_id}.log"));
+        } else if let Ok(safe_name) = safe_job_filename(job_id, "log") {
+            let log_path = logs_dir.join(safe_name);
             // Truncate any leftover log file from a previous run with the same job_id.
             let _ = std::fs::write(&log_path, "");
             self.log_file_path = Some(log_path);
+        } else {
+            panic!("process::spawn_generation called with unsafe job_id: {job_id:?}");
         }
 
         // Bounded channel — backpressure if the UI stops polling logs.
@@ -488,6 +515,46 @@ mod tests {
     use crate::models::{AppConfig, AppMode, AudioFormat, LocalModel, ModelQuant, ModelState};
 
     #[test]
+    fn safe_job_filename_accepts_normal_ids() {
+        assert_eq!(
+            safe_job_filename("job-1700000000000", "pid").unwrap(),
+            PathBuf::from("job-1700000000000.pid")
+        );
+        assert_eq!(
+            safe_job_filename("job-1", "log").unwrap(),
+            PathBuf::from("job-1.log")
+        );
+    }
+
+    #[test]
+    fn safe_job_filename_rejects_traversal() {
+        assert!(safe_job_filename("../../../etc/passwd", "pid").is_err());
+        assert!(safe_job_filename("..", "pid").is_err());
+        assert!(safe_job_filename(".", "pid").is_err());
+    }
+
+    #[test]
+    fn safe_job_filename_rejects_separators_and_nul() {
+        assert!(safe_job_filename("foo/bar", "pid").is_err());
+        assert!(safe_job_filename("foo\\bar", "pid").is_err());
+        assert!(safe_job_filename("foo\0bar", "pid").is_err());
+    }
+
+    #[test]
+    fn safe_job_filename_rejects_empty() {
+        assert!(safe_job_filename("", "pid").is_err());
+    }
+
+    #[test]
+    fn safe_job_filename_strips_leading_dot() {
+        // "pid" -> "job-1.pid", ".pid" -> "job-1.pid"
+        assert_eq!(
+            safe_job_filename("job-1", ".pid").unwrap(),
+            PathBuf::from("job-1.pid")
+        );
+    }
+
+    #[test]
     fn sanitize_removes_ansi() {
         assert_eq!(sanitize_log_message("\x1b[31mErr\x1b[0m"), "Err");
     }
@@ -542,7 +609,7 @@ mod tests {
         default_model_id: "s2".into(),
         default_audio_format: AudioFormat::Wav,
         cpu_threads: 4,
-        gpu_enabled: true, advanced_args: Default::default(), schema_version: 1, };
+        gpu_enabled: true, schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -589,7 +656,7 @@ mod tests {
         default_model_id: "s2".into(),
         default_audio_format: AudioFormat::Wav,
         cpu_threads: 1,
-        gpu_enabled: true, advanced_args: Default::default(), schema_version: 1, };
+        gpu_enabled: true, schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -629,7 +696,7 @@ mod tests {
         default_model_id: "s2".into(),
         default_audio_format: AudioFormat::Wav,
         cpu_threads: 1,
-        gpu_enabled: false, advanced_args: Default::default(), schema_version: 1, };
+        gpu_enabled: false, schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -664,7 +731,7 @@ mod tests {
         default_model_id: "s2".into(),
         default_audio_format: AudioFormat::Wav,
         cpu_threads: 1,
-        gpu_enabled: true, advanced_args: Default::default(), schema_version: 1, };
+        gpu_enabled: true, schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -704,7 +771,7 @@ mod tests {
         default_model_id: "s2".into(),
         default_audio_format: AudioFormat::Wav,
         cpu_threads: 1,
-        gpu_enabled: true, advanced_args: Default::default(), schema_version: 1, };
+        gpu_enabled: true, schema_version: 1, };
         let m = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -760,7 +827,7 @@ mod tests {
         default_model_id: "s2".into(),
         default_audio_format: AudioFormat::Wav,
         cpu_threads: 1,
-        gpu_enabled: false, advanced_args: Default::default(), schema_version: 1, };
+        gpu_enabled: false, schema_version: 1, };
         let model = LocalModel {
             id: "s2".into(),
             quant: ModelQuant::Q6,
@@ -805,5 +872,187 @@ mod tests {
         assert!(bytes.len() >= 12, "WAV file too short: {} bytes", bytes.len());
         assert_eq!(&bytes[0..4], b"RIFF");
         assert_eq!(&bytes[8..12], b"WAVE");
+    }
+
+    #[test]
+    fn test_spawn_with_nonexistent_binary() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let outputs_path = temp_dir.path().to_str().unwrap();
+
+        let spec = GenerationCommandSpec {
+            binary_path: PathBuf::from("/nonexistent/path/to/engine"),
+            args: vec![
+                "--model".into(),
+                "m".into(),
+                "--text".into(),
+                "hi".into(),
+                "--output".into(),
+                "/tmp/o.wav".into(),
+            ],
+            cwd: None,
+            output_path: temp_dir.path().join("out.wav"),
+        };
+
+        let request = GenerationRequest {
+            text: "hello".into(),
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+
+        let mut pm = ProcessManager::default();
+        let result = pm.spawn_generation(&spec, &request, "job-test", outputs_path);
+
+        assert!(
+            result.is_err(),
+            "expected error for nonexistent binary, got: {:?}",
+            result
+        );
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("failed to spawn"),
+            "error message should mention spawn failure: {err}"
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_cancel_active_kills_child() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let outputs_path = temp_dir.path().to_str().unwrap();
+        let output_path = temp_dir.path().join("out.wav");
+
+        let spec = GenerationCommandSpec {
+            binary_path: PathBuf::from("/bin/sleep"),
+            args: vec!["60".into()],
+            cwd: None,
+            output_path: output_path.clone(),
+        };
+
+        let request = GenerationRequest {
+            text: "hello".into(),
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+
+        let mut pm = ProcessManager::default();
+        let job = pm
+            .spawn_generation(&spec, &request, "job-test", outputs_path)
+            .unwrap();
+
+        assert!(pm.child.is_some());
+        assert_eq!(job.status, GenerationStatus::Generating);
+
+        let cancelled = pm.cancel_active();
+        assert!(cancelled);
+        assert!(pm.child.is_none());
+
+        let active = pm.active_job.as_ref().unwrap();
+        assert_eq!(active.status, GenerationStatus::Cancelled);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_spawn_creates_pid_file() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let outputs_path = temp_dir.path().to_str().unwrap();
+        let output_path = temp_dir.path().join("out.wav");
+
+        let spec = GenerationCommandSpec {
+            binary_path: PathBuf::from("/bin/sleep"),
+            args: vec!["60".into()],
+            cwd: None,
+            output_path: output_path.clone(),
+        };
+
+        let request = GenerationRequest {
+            text: "hello".into(),
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+
+        let mut pm = ProcessManager::default();
+        pm.spawn_generation(&spec, &request, "job-test", outputs_path)
+            .unwrap();
+
+        let pid_path = temp_dir
+            .path()
+            .join(".voice-of-fish")
+            .join("pids")
+            .join("job-test.pid");
+        assert!(
+            pid_path.is_file(),
+            "expected PID file at {}",
+            pid_path.display()
+        );
+        assert!(pm.pid_file_path.is_some());
+
+        // Cleanup: cancel the sleeping process so it doesn't linger.
+        pm.cancel_active();
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_finish_cleans_pid_file() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let outputs_path = temp_dir.path().to_str().unwrap();
+        let output_path = temp_dir.path().join("out.wav");
+
+        let spec = GenerationCommandSpec {
+            binary_path: PathBuf::from("/bin/true"),
+            args: vec![],
+            cwd: None,
+            output_path: output_path.clone(),
+        };
+
+        let request = GenerationRequest {
+            text: "hello".into(),
+            language: "en".into(),
+            model_id: "s2".into(),
+            seed: None,
+            voice_preset_id: None,
+            reference_audio_path: None,
+            reference_text: None,
+        };
+
+        let mut pm = ProcessManager::default();
+        pm.spawn_generation(&spec, &request, "job-test", outputs_path)
+            .unwrap();
+
+        let pid_path = temp_dir
+            .path()
+            .join(".voice-of-fish")
+            .join("pids")
+            .join("job-test.pid");
+        assert!(
+            pid_path.is_file(),
+            "PID file should exist before completion"
+        );
+
+        // Allow the quick process to exit and reader threads to notice.
+        std::thread::sleep(std::time::Duration::from_millis(150));
+
+        let completed = pm.check_completion();
+        assert!(
+            completed,
+            "check_completion should return true for finished process"
+        );
+
+        assert!(
+            !pid_path.is_file(),
+            "PID file should be cleaned up after completion"
+        );
+        assert!(pm.pid_file_path.is_none());
     }
 }

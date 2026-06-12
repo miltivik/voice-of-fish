@@ -1,8 +1,6 @@
-import { join } from "@tauri-apps/api/path";
-import { copyFile } from "@tauri-apps/plugin-fs";
-import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listen } from "@tauri-apps/api/event";
 import type { ModelManifestEntry } from "@voice-of-fish/shared";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,11 +13,11 @@ export function ModelManagerPage() {
   const activeModelId = useModelStore((state) => state.activeModelId);
   const setActiveModelId = useModelStore((state) => state.setActiveModelId);
   const config = useAppStore((state) => state.config);
-
-  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
+  const [downloadProgress, setDownloadProgress] = useState<
+    Record<string, number>
+  >({});
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounter = useRef(0);
-
 
   useEffect(() => {
     let cancelled = false;
@@ -31,7 +29,8 @@ export function ModelManagerPage() {
         if (cancelled) return;
         setDownloadProgress((prev) => ({
           ...prev,
-          [event.payload.modelId]: event.payload.downloaded / event.payload.total,
+          [event.payload.modelId]:
+            event.payload.downloaded / event.payload.total,
         }));
       },
     )
@@ -42,8 +41,8 @@ export function ModelManagerPage() {
           unlistenFn = fn;
         }
       })
-      .catch(() => {
-        // Tauri runtime not available (e.g., in tests without Tauri mock)
+      .catch((err) => {
+        console.warn("[ModelManager] event listen failed:", err);
       });
 
     return () => {
@@ -65,7 +64,8 @@ export function ModelManagerPage() {
     queryFn: studioClient.listLocalModels,
   });
 
-  const sync = (next: ModelManifestEntry[]) => queryClient.setQueryData(["models"], next);
+  const sync = (next: ModelManifestEntry[]) =>
+    queryClient.setQueryData(["models"], next);
 
   const download = useMutation({
     mutationFn: studioClient.downloadModel,
@@ -105,7 +105,7 @@ export function ModelManagerPage() {
         toast.error("Failed to open models folder");
       });
     }
-  }, [config?.modelsPath]);
+  }, [config]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -150,19 +150,19 @@ export function ModelManagerPage() {
         return;
       }
 
-      const modelsPath = config?.modelsPath;
-      if (!modelsPath) {
+      if (!config?.modelsPath) {
         toast.error("Models path not configured");
         return;
       }
 
       try {
-        const destPath = await join(modelsPath, fileName);
-        await copyFile(sourcePath, destPath);
+        await studioClient.importModelFile(sourcePath, fileName);
         await queryClient.invalidateQueries({ queryKey: ["models"] });
         toast.success(`${fileName} copied to models`);
       } catch (err) {
-        toast.error(`Failed to copy model: ${err instanceof Error ? err.message : String(err)}`);
+        toast.error(
+          `Failed to copy model: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     },
     [config?.modelsPath, queryClient],
@@ -221,7 +221,9 @@ export function ModelManagerPage() {
         }`}
       >
         <p className="text-sm font-mono">
-          {isDragOver ? "Drop .gguf file here" : "Drag and drop a .gguf file here"}
+          {isDragOver
+            ? "Drop .gguf file here"
+            : "Drag and drop a .gguf file here"}
         </p>
       </div>
 

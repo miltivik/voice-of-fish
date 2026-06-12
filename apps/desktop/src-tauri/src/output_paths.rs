@@ -53,6 +53,111 @@ pub fn validate_within_outputs(
     Ok(canonical)
 }
 
+/// Validates that `target_dir` is a safe place for `export_editor_bundle`
+/// to write the WAV copies, SRT, Kdenlive XML, and resolve_import.py
+/// script. Returns the canonical parent directory on success (the leaf
+/// may not exist yet — the caller will create it).
+///
+/// Rejects:
+/// - non-absolute paths
+/// - paths whose parent resolves to a system-sensitive directory
+///   (e.g. `$HOME/.ssh`, `/etc`, `/var`, `/System`, `/Library`)
+/// - paths whose resolved parent is *inside* `outputs_path` (would
+///   clobber generation outputs)
+/// - paths with NUL bytes
+///
+/// This is **defense-in-depth** — the user *just* picked this folder
+/// via the native dialog, so the trust model assumes the picker is
+/// honest. The guard exists so a compromised renderer cannot pass
+/// `target = "/home/user/.ssh/banana"` and have the app create it.
+pub fn validate_export_target(
+    outputs_path: &str,
+    target_dir: &str,
+) -> Result<PathBuf, String> {
+    if target_dir.trim().is_empty() {
+        return Err("target_dir is empty".to_string());
+    }
+    if target_dir.contains('\0') {
+        return Err("target_dir contains NUL byte".to_string());
+    }
+    let target = Path::new(target_dir);
+    if !target.is_absolute() {
+        return Err(format!(
+            "target_dir must be absolute, got: {target_dir}"
+        ));
+    }
+
+    // Resolve the parent (must exist) so we catch symlinks and `..` segments.
+    let parent = target
+        .parent()
+        .ok_or_else(|| format!("target_dir has no parent: {target_dir}"))?;
+    let canonical_parent = std::fs::canonicalize(parent)
+        .map_err(|e| format!("failed to resolve target_dir parent '{parent:?}': {e}"))?;
+    if !canonical_parent.is_dir() {
+        return Err(format!(
+            "target_dir parent is not a directory: {parent:?}"
+        ));
+    }
+
+    // The leaf name (the new directory) may not exist yet. Sanity-check
+    // it for path separators and `..` so a renderer can't create
+    // a directory that escapes the canonical parent.
+    let leaf = target
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| format!("target_dir has no leaf name: {target_dir}"))?;
+    if leaf.is_empty()
+        || leaf == "."
+        || leaf == ".."
+        || leaf.contains('/')
+        || leaf.contains('\\')
+    {
+        return Err(format!("target_dir has an unsafe leaf name: {leaf:?}"));
+    }
+
+    // Reject system-sensitive parents. Matched case-insensitively
+    // against canonical path components.
+    // Reject system-sensitive parents in the RAW path the renderer
+    // gave us (a symlink to a sensitive dir still shows up here as
+    // `.ssh`, but `canonicalize` would have followed the symlink
+    // and erased it — so iterate the un-resolved path too).
+    for component in target.components() {
+        let raw = component.as_os_str().to_string_lossy().to_ascii_lowercase();
+        if is_sensitive_export_parent(&raw) {
+            return Err(format!(
+                "target_dir is inside a sensitive system path: {target_dir}"
+            ));
+        }
+    }
+
+    // Resolve outputs_path once and reject if the parent lives inside it.
+    if let Ok(outputs_root) = std::fs::canonicalize(outputs_path) {
+        if canonical_parent.starts_with(&outputs_root) {
+            return Err(format!(
+                "target_dir cannot be inside outputs_path: {target_dir}"
+            ));
+        }
+    }
+
+    Ok(canonical_parent.join(leaf))
+}
+
+/// Returns true if a single path component (lower-cased basename) is
+/// a directory we never want `export_editor_bundle` writing into.
+fn is_sensitive_export_parent(lower_basename: &str) -> bool {
+    matches!(
+        lower_basename,
+        // Unix user secrets
+        ".ssh" | ".gnupg" | ".aws" | ".kube" | ".docker" | ".config" |
+        // macOS system
+        "library" | "system" | "private" |
+        // Unix system
+        "etc" | "var" | "usr" | "bin" | "sbin" | "boot" |
+        // Windows system
+        "windows" | "programfiles" | "programfiles(x86)" | "users"
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Open helpers (C-1, C-2)
 // ---------------------------------------------------------------------------
@@ -142,10 +247,12 @@ pub fn export_editor_bundle(
         validated.push((canonical, clip));
     }
 
-    let target = Path::new(target_dir);
-    std::fs::create_dir_all(target)
+    // Validate target_dir BEFORE any filesystem side effects. This rejects
+    // system-sensitive parents and stops a compromised renderer from
+    // writing into ~/.ssh, /etc, or back into outputs_path.
+    let target = validate_export_target(outputs_path, target_dir)?;
+    std::fs::create_dir_all(&target)
         .map_err(|e| format!("failed to create export folder: {e}"))?;
-
     let mut count = 0u32;
 
     // Copy WAV files (using canonical paths).
@@ -182,7 +289,7 @@ pub fn export_editor_bundle(
             .map_err(|e| format!("failed to copy script: {e}"))?;
     }
 
-    Ok(format!("Exported {count} clip(s) to {target_dir}"))
+    Ok(format!("Exported {count} clip(s) to {}", target.display()))
 }
 
 fn generate_kdenlive_xml(
@@ -531,6 +638,103 @@ mod tests {
 
         std::fs::remove_dir_all(&outputs_root).ok();
         std::fs::remove_file(&outside_wav).ok();
+    }
+
+    #[test]
+    fn validate_export_target_accepts_safe_parent() {
+        let outputs = std::env::temp_dir().join("vof_validate_export_outputs");
+        std::fs::create_dir_all(&outputs).unwrap();
+        let target = outputs
+            .parent()
+            .unwrap()
+            .join("vof_validate_export_target");
+        let result = validate_export_target(
+            &outputs.to_string_lossy(),
+            &target.to_string_lossy(),
+        );
+        assert!(result.is_ok(), "should accept a normal target: {result:?}");
+        std::fs::remove_dir_all(&outputs).ok();
+    }
+
+    #[test]
+    fn validate_export_target_rejects_empty_and_nul() {
+        let outputs = std::env::temp_dir().join("vof_validate_export_outputs");
+        std::fs::create_dir_all(&outputs).unwrap();
+        assert!(validate_export_target(&outputs.to_string_lossy(), "").is_err());
+        assert!(
+            validate_export_target(
+                &outputs.to_string_lossy(),
+                "/tmp/foo\0bar"
+            )
+            .is_err()
+        );
+        std::fs::remove_dir_all(&outputs).ok();
+    }
+
+    #[test]
+    fn validate_export_target_rejects_relative_path() {
+        let outputs = std::env::temp_dir().join("vof_validate_export_outputs");
+        std::fs::create_dir_all(&outputs).unwrap();
+        assert!(
+            validate_export_target(&outputs.to_string_lossy(), "relative/target")
+                .is_err()
+        );
+        std::fs::remove_dir_all(&outputs).ok();
+    }
+
+    #[test]
+    fn validate_export_target_rejects_target_inside_outputs() {
+        let outputs = std::env::temp_dir().join("vof_validate_export_inside");
+        std::fs::create_dir_all(&outputs).unwrap();
+        let target = outputs.join("sub_export");
+        let result = validate_export_target(
+            &outputs.to_string_lossy(),
+            &target.to_string_lossy(),
+        );
+        assert!(result.is_err(), "should reject target inside outputs_path");
+        let err = result.unwrap_err();
+        assert!(err.contains("outputs_path"), "unexpected error: {err}");
+        std::fs::remove_dir_all(&outputs).ok();
+    }
+
+    #[test]
+    fn validate_export_target_rejects_sensitive_parents() {
+        // Create a parent dir whose canonical path contains a `.ssh`
+        // component. We do this by creating a real dir and then
+        // symlinking a subdir named `.ssh` to point at it.
+        let tmp = std::env::temp_dir().join(format!(
+            "vof_sensitive_{}",
+            std::time::UNIX_EPOCH
+                .elapsed()
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let real_dir = tmp.join("real");
+        std::fs::create_dir_all(&real_dir).unwrap();
+        let dot_ssh_link = tmp.join(".ssh");
+        std::os::unix::fs::symlink(&real_dir, &dot_ssh_link).unwrap();
+
+        let target = dot_ssh_link.join("export_target");
+        let outputs = std::env::temp_dir().join(format!(
+            "vof_sensitive_outputs_{}",
+            std::time::UNIX_EPOCH
+                .elapsed()
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::create_dir_all(&outputs).unwrap();
+
+        let result = validate_export_target(
+            &outputs.to_string_lossy(),
+            &target.to_string_lossy(),
+        );
+        assert!(result.is_err(), "should reject target in .ssh dir");
+        let err = result.unwrap_err();
+        assert!(err.contains("sensitive"), "unexpected error: {err}");
+
+        let _ = std::fs::remove_dir_all(&tmp);
+        let _ = std::fs::remove_dir_all(&outputs);
     }
 
     // --- XML escaping ---

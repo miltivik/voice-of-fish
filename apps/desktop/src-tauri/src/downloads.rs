@@ -62,18 +62,24 @@ pub fn download_model_file(
         .as_deref()
         .filter(|u| !u.is_empty())
         .ok_or_else(|| format!("download not available for {model_id}: no URL"))?;
-
+    // Defense-in-depth: enforce scheme + host allowlist before opening
+    // the connection. The URL is a hard-coded literal in the manifest
+    // today, but a future entry that points at a cleartext mirror or
+    // a hostile host should fail closed.
+    crate::secure_url::validate_url(url)?;
     let checksum = entry
         .checksum
         .as_deref()
         .filter(|c| !c.is_empty())
         .ok_or_else(|| format!("download not available for {model_id}: no checksum"))?;
 
-    // Fail closed: refuse to download if checksum is not a real SHA256.
     if is_placeholder_checksum(checksum) {
         return Err(format!("download not available for {model_id}: checksum is not a real SHA256"));
     }
     let max_bytes = ((entry.approx_bytes as f64) * DOWNLOAD_SIZE_MARGIN) as u64;
+    // Hard upper bound — the manifest's approx_bytes can be wrong; the
+    // allowlist guard above won't help against a manifest that lies.
+    let max_bytes = max_bytes.min(crate::secure_url::MAX_MODEL_BYTES);
     std::fs::create_dir_all(models_path).map_err(|e| format!("failed to create models directory: {e}"))?;
     let models_path = models_path
         .canonicalize()
