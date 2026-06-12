@@ -31,7 +31,7 @@ describe("VoiceCloningPage", () => {
     render(<VoiceCloningPage />, { wrapper: AppProviders });
 
     expect(
-      await screen.findByText("No voice presets saved yet."),
+      await screen.findByText("No presets yet. Create one to get started."),
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "Add voice" })).toBeVisible();
   });
@@ -181,8 +181,20 @@ describe("VoiceCloningPage", () => {
   it("filters presets by search", async () => {
     const user = userEvent.setup();
     mockListVoicePresets.mockResolvedValue([
-      { id: "p1", name: "Alpha", language: "en", referenceText: "a", referenceFileName: "a.wav" },
-      { id: "p2", name: "Beta", language: "es", referenceText: "b", referenceFileName: "b.wav" },
+      {
+        id: "p1",
+        name: "Alpha",
+        language: "en",
+        referenceText: "a",
+        referenceFileName: "a.wav",
+      },
+      {
+        id: "p2",
+        name: "Beta",
+        language: "es",
+        referenceText: "b",
+        referenceFileName: "b.wav",
+      },
     ]);
 
     render(<VoiceCloningPage />, { wrapper: AppProviders });
