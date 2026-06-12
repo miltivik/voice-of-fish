@@ -34,15 +34,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ activeJobId: null });
   },
   setActiveModelAndPersist: async (modelId: string) => {
-    const current = get().config;
-    if (!current) return;
-    const updated = { ...current, defaultModelId: modelId };
+    const previous = get().config;
+    if (!previous) return;
+    const updated = { ...previous, defaultModelId: modelId };
     set({ config: updated });
     try {
       await studioClient.saveAppConfig(updated);
-    } catch {
-      // Revert on failure — re-read latest state.
-      set({ config: get().config });
+    } catch (err) {
+      // Restore the snapshot we captured before the optimistic write.
+      // Re-reading get().config here would return the new value, since
+      // the set above already published it to the store.
+      console.error(
+        "[useAppStore] failed to persist defaultModelId, reverting:",
+        err,
+      );
+      set({ config: previous });
     }
   },
 }));

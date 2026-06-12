@@ -17,7 +17,7 @@ interface UseGenerationPollingOptions {
 interface UseGenerationPollingResult {
   startPolling: () => void;
   stopPolling: () => void;
-  cancelJob: (jobId: string) => void;
+  cancelJob: (jobId: string) => Promise<void>;
 }
 
 export function useGenerationPolling({
@@ -106,17 +106,14 @@ export function useGenerationPolling({
   }, [stopPolling]);
 
   const cancelJob = useCallback(
-    (jobId: string) => {
+    async (jobId: string): Promise<void> => {
       stopPolling();
       useGenerationStore.getState().setStatus("cancelled");
       useAppStore.getState().setFooterStatus("ready");
-      studioClient.cancelGeneration(jobId).catch((err) => {
-        console.error("[useGenerationPolling] cancel failed:", err);
-      });
+      await studioClient.cancelGeneration(jobId);
     },
     [stopPolling],
   );
-
 
   return { startPolling, stopPolling, cancelJob };
 }

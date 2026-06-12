@@ -112,7 +112,9 @@ export function GenerationForm({
     if (!activeJobId) return;
     setCancelInFlight(true);
     try {
-      cancelJob(activeJobId);
+      await cancelJob(activeJobId);
+    } catch (err) {
+      console.error("[GenerationForm] cancel failed:", err);
     } finally {
       setCancelInFlight(false);
       setActiveJobId(null);

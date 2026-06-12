@@ -166,7 +166,7 @@ describe("useAppStore", () => {
     expect(useAppStore.getState().config).toBeUndefined();
   });
 
-  it("setActiveModelAndPersist: revert block runs on save failure", async () => {
+  it("setActiveModelAndPersist: restores prior defaultModelId when save fails", async () => {
     setupTauriMocks({
       save_app_config: () => {
         throw new Error("disk full");
@@ -176,12 +176,10 @@ describe("useAppStore", () => {
     const cfg = { ...defaultConfig, defaultModelId: "before" };
     useAppStore.getState().hydrateConfig(cfg);
 
-    // Optimistic update changes it; saveAppConfig throws, revert fires
+    // Optimistic update writes "after"; saveAppConfig throws; the catch
+    // block restores the snapshot captured before the optimistic write.
     await useAppStore.getState().setActiveModelAndPersist("after");
 
-    // The revert does `set({ config: get().config })` which is a no-op
-    // since the optimistic set already wrote the value — but the catch
-    // block itself executes without crashing.
-    expect(useAppStore.getState().config?.defaultModelId).toBe("after");
+    expect(useAppStore.getState().config?.defaultModelId).toBe("before");
   });
 });
