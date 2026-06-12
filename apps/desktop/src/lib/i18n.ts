@@ -6,8 +6,12 @@ const messages = {
     localOnlyBadge: "LOCAL ONLY",
 
     /* --- Navigation --- */
-    generate: "Generate",
+    dashboard: "Dashboard",
+    voices: "Voices",
+    models: "Models",
+    history: "History",
     diagnostics: "Diagnostics",
+    settings: "Settings",
     setup: "Voice of Fish Setup",
 
     /* --- Onboarding: Progress rail --- */
@@ -85,7 +89,17 @@ const messages = {
     genericRequired: "This field is required.",
     genericLanguage: "Language",
     genericNone: "None",
+    genericLoading: "Loading…",
+    genericError: "Something went wrong",
 
+    /* --- Voice Presets --- */
+    voicePresetOptional: "Voice preset (optional)",
+    voicePresetNameRequired: "Name is required",
+    voicePresetLanguageRequired: "Language is required",
+    voicePresetRefTextRequired: "Reference text is required",
+    voicePresetLoading: "Loading presets…",
+    voicePresetLoadError: "Failed to load presets.",
+    voicePresetEmpty: "No presets yet. Create one to get started.",
     /* --- Editor --- */
     editorHeading: "Editor",
     editorSubheading:
@@ -111,10 +125,132 @@ const messages = {
     errorBoundaryBody:
       "An unexpected error occurred on this page. Go back to the dashboard and try again.",
     errorBoundaryAction: "Go to dashboard",
-   },
- } as const;
+  },
+  es: {
+    appName: "Voice of Fish",
+    appTagline: "S2 Pro GGUF Studio",
+    localOnlyBadge: "SOLO LOCAL",
+    dashboard: "Panel",
+    generate: "Generar",
+    voices: "Voces",
+    models: "Modelos",
+    history: "Historial",
+    diagnostics: "Diagnósticos",
+    settings: "Configuración",
+    setup: "Configuración de Voice of Fish",
+    onboardingStepEngine: "Motor",
+    onboardingStepModel: "Archivo de modelo",
+    onboardingStepOutput: "Salida",
+    onboardingPrivacyNote:
+      "Sin telemetría. Toda la generación se queda en este equipo.",
+    onboardingStepCounter: "Paso {current} de {total}",
+    onboardingStepsNavLabel: "Pasos de configuración",
+    engineHeading: "Conectar s2.cpp",
+    engineBody:
+      "Voice of Fish no instala el motor. Apunta a tu binario s2.cpp existente — la generación permanece completamente local después de proporcionar el motor y un archivo de modelo compatible.",
+    engineBadgeCommunity: "COMUNITARIO / EXPERIMENTAL",
+    engineButtonChoose: "Elegir binario",
+    engineButtonSource: "Ver código de s2.cpp",
+    engineStatusFound: "Binario encontrado",
+    engineStatusMissing: "Binario no encontrado",
+    engineBinaryPlaceholder: "ej. {path}",
+    modelHeading: "Añadir un modelo S2 Pro GGUF",
+    modelBody:
+      "Elige una conversión GGUF compatible para inferencia local. El modelo oficial de Fish Audio se proporciona solo como referencia de código y licencia.",
+    modelBadgeRecommended: "RECOMENDADO",
+    modelButtonOpenFolder: "Abrir carpeta de modelos",
+    modelButtonChooseFile: "Elegir archivo GGUF",
+    modelButtonGgufSource: "Ver fuente GGUF",
+    modelButtonOfficialSource: "Ver fuente + licencia",
+    modelFolderPlaceholder: "ej. {path}",
+    modelFilePlaceholder: "Selecciona un archivo .gguf",
+    modelQuantQ8: "Mayor calidad, mayor uso de memoria",
+    modelQuantQ6: "Balance recomendado",
+    modelQuantQ5: "Mejor ajuste para GPU con memoria limitada",
+    modelQuantQ4: "Menor consumo, menor calidad",
+    modelQuantLegend: "Elige la variante de cuantización del modelo",
+    modelNoteOfficialLabel: "NOTA DE FORMATO OFICIAL",
+    modelNoteOfficialBody:
+      "Los archivos BF16 Safetensors no son compatibles con s2.cpp.",
+    modelErrorSafetensors:
+      "Los archivos BF16 Safetensors oficiales no pueden ser usados por s2.cpp. Elige un modelo GGUF compatible.",
+    modelErrorF16:
+      "F16 GGUF no está habilitado en esta versión. Elige Q8, Q6, Q5 o Q4.",
+    modelErrorNoCompatible:
+      "No se detectó un modelo GGUF compatible en esta carpeta.",
+    modelStatusFound: "GGUF compatible detectado",
+    modelStatusNotFound: "No hay GGUF compatible en la carpeta",
+    outputHeading: "Elige tu carpeta de salida",
+    outputBody: "Los archivos WAV generados se escribirán aquí.",
+    outputModeSimple: "Simple",
+    outputModeAdvanced: "Avanzado",
+    outputModeSimpleDesc:
+      "Recomendado para uso inicial. Una generación a la vez.",
+    outputModeAdvancedDesc:
+      "Configuración avanzada disponible después de la configuración.",
+    outputButtonChoose: "Abrir carpeta de salida",
+    outputFolderPlaceholder: "ej. {path}",
+    outputSummaryLabel: "Resumen de configuración",
+    outputSummaryEngine: "Motor",
+    outputSummaryModel: "Modelo",
+    outputSummaryOutput: "Salida",
+    outputFormatNote: "Formato predeterminado: WAV",
+    onboardingBack: "Atrás",
+    onboardingContinue: "Continuar",
+    onboardingFinish: "Finalizar configuración",
+    onboardingFinishDisabled: "Completa los tres pasos antes de finalizar.",
+    genericStatusOk: "OK",
+    genericStatusError: "Error",
+    genericRequired: "Este campo es obligatorio.",
+    genericLanguage: "Idioma",
+    genericNone: "Ninguno",
+    genericLoading: "Cargando…",
+    genericError: "Algo salió mal",
+    voicePresetOptional: "Preset de voz (opcional)",
+    voicePresetNameRequired: "El nombre es obligatorio",
+    voicePresetLanguageRequired: "El idioma es obligatorio",
+    voicePresetRefTextRequired: "El texto de referencia es obligatorio",
+    voicePresetLoading: "Cargando presets…",
+    voicePresetLoadError: "Error al cargar presets.",
+    voicePresetEmpty: "No hay presets aún. Crea uno para comenzar.",
+    editorHeading: "Editor",
+    editorSubheading:
+      "Pega un guión, genera cada oración como un clip y exporta para DaVinci Resolve.",
+    editorScriptLabel: "Guión",
+    editorScriptPlaceholder:
+      "Bienvenidos al programa. Hoy exploramos la inteligencia artificial. Pero primero, una palabra de nuestro patrocinador.",
+    editorModelLabel: "Modelo",
+    editorVoiceLabel: "Voz",
+    editorGenerating: "Generando {n} oración…",
+    editorGenerating_plural: "Generando {n} oraciones…",
+    editorGenerateButton: "Generar {n} oración",
+    editorGenerateButton_plural: "Generar {n} oraciones",
+    editorTimelineHeading: "Línea de tiempo · {n} clip(s) · Total {time}",
+    editorCopySrt: "Copiar SRT",
+    editorSrtCopied: "SRT copiado al portapapeles",
+    editorExportResolve: "Exportar para Resolve",
+    editorSelectExportFolder: "Seleccionar carpeta de exportación",
+    editorExportFailed: "Error al exportar: {error}",
+    errorBoundaryTitle: "Algo salió mal",
+    errorBoundaryBody:
+      "Ocurrió un error inesperado en esta página. Vuelve al dashboard e intenta de nuevo.",
+    errorBoundaryAction: "Ir al dashboard",
+  },
+} as const;
 
-type MessageKey = keyof typeof messages.en;
+export type MessageKey = keyof typeof messages.en;
+
+export type AppLanguage = "en" | "es";
+
+let currentLanguage: AppLanguage = "en";
+
+export function setLanguage(lang: AppLanguage) {
+  currentLanguage = lang;
+}
+
+export function getLanguage(): AppLanguage {
+  return currentLanguage;
+}
 
 export type GuideLanguage = "es" | "en";
 
@@ -153,8 +289,7 @@ const guideMessages = {
     linuxBody:
       "Instala Git, CMake y tu toolchain C++17 desde el gestor de paquetes de tu distribución. Abre una terminal y ejecuta:",
     macosHeading: "macOS",
-    macosBody:
-      "Instala CMake y Git con Homebrew. Abre una terminal y ejecuta:",
+    macosBody: "Instala CMake y Git con Homebrew. Abre una terminal y ejecuta:",
     modelHeading: "Descargar modelo GGUF y tokenizer",
     modelBody:
       "Instala la CLI actual de Hugging Face y descarga Q6 junto con tokenizer.json. Puedes elegir Q8, Q5 o Q4 según memoria disponible.",
@@ -217,8 +352,7 @@ const guideMessages = {
     linuxBody:
       "Install Git, CMake, and your C++17 toolchain from your distribution package manager. Open a terminal and run:",
     macosHeading: "macOS",
-    macosBody:
-      "Install CMake and Git via Homebrew. Open a terminal and run:",
+    macosBody: "Install CMake and Git via Homebrew. Open a terminal and run:",
     modelHeading: "Download GGUF model and tokenizer",
     modelBody:
       "Install the current Hugging Face CLI and download Q6 together with tokenizer.json. You can choose Q8, Q5, or Q4 based on available memory.",
@@ -257,7 +391,9 @@ export function t(
   key: MessageKey,
   params?: Record<string, string | number>,
 ): string {
-  let message: string = messages.en[key];
+  const lang = currentLanguage;
+  let message: string =
+    (messages[lang] as Record<string, string>)[key] ?? messages.en[key];
 
   if (!params) {
     return message;
