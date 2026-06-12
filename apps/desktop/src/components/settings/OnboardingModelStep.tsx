@@ -1,13 +1,9 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { ModelQuant } from "@voice-of-fish/shared";
 import { S2_MODEL_MANIFEST } from "@voice-of-fish/shared/constants";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import {
-  pickFolderPath,
-  pickGgufPath,
-  openExternalLink,
-} from "@/lib/tauri";
+import { pickFolderPath, pickGgufPath, openExternalLink } from "@/lib/tauri";
 import { getPlatformDefaultPaths } from "@/lib/platform";
 import type { ModelValidation } from "./onboarding-validation";
 import { validateModelFile } from "./onboarding-validation";
@@ -29,9 +25,11 @@ const QUANT_LABELS: Record<ModelQuant, string> = {
   Q4: t("modelQuantQ4"),
 };
 
-
 function getParentDirectory(filePath: string): string {
-  const separatorIndex = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
+  const separatorIndex = Math.max(
+    filePath.lastIndexOf("/"),
+    filePath.lastIndexOf("\\"),
+  );
 
   if (separatorIndex < 0) {
     return "";
@@ -64,12 +62,14 @@ export function OnboardingModelStep({
     error: null,
   });
 
-  // Pre-fill modelsPath from platform defaults if empty
+  // Pre-fill modelsPath from platform defaults once on mount.
+  const didPreFill = useRef(false);
   useEffect(() => {
-    if (!modelsPath) {
+    if (!didPreFill.current && !modelsPath) {
+      didPreFill.current = true;
       onModelsPathChange(getPlatformDefaultPaths().modelsPath);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [modelsPath, onModelsPathChange]);
 
   const runValidation = useCallback(
     (file: string) => {
@@ -171,7 +171,9 @@ export function OnboardingModelStep({
             type="text"
             value={modelsPath}
             onChange={(e) => onModelsPathChange(e.target.value)}
-            placeholder={t("modelFolderPlaceholder", { path: getPlatformDefaultPaths().modelsPath })}
+            placeholder={t("modelFolderPlaceholder", {
+              path: getPlatformDefaultPaths().modelsPath,
+            })}
             aria-label="Models folder path"
             className="flex-1 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2 text-sm text-concrete-50 placeholder:text-concrete-300/50 focus:border-electric focus:outline-none"
           />

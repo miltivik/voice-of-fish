@@ -35,10 +35,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setActiveModelAndPersist: async (modelId: string) => {
     const current = get().config;
-    if (current) {
-      const updated = { ...current, defaultModelId: modelId };
+    if (!current) return;
+    const updated = { ...current, defaultModelId: modelId };
+    set({ config: updated });
+    try {
       await studioClient.saveAppConfig(updated);
-      set({ config: updated });
+    } catch {
+      // Revert on failure — re-read latest state.
+      set({ config: get().config });
     }
   },
 }));

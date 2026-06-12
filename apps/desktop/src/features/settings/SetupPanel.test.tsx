@@ -73,7 +73,7 @@ describe("SetupPanel", () => {
         defaultAudioFormat: "wav",
         cpuThreads: 8,
         gpuEnabled: true,
-        advancedArgs: {},
+        schemaVersion: 1,
         modelsPath: "~/voice-of-fish/models",
       }),
     );

@@ -13,11 +13,11 @@ export function AudioWaveform({
   const waveRef = useRef<WaveSurfer | null>(null);
   const [playing, setPlaying] = useState(false);
 
+  // Create WaveSurfer once, reuse with load() on URL change.
   useEffect(() => {
-    if (!audioUrl || !host.current) return;
+    if (!host.current) return;
     const wave = WaveSurfer.create({
       container: host.current,
-      url: audioUrl,
       height: 72,
     });
     waveRef.current = wave;
@@ -25,6 +25,11 @@ export function AudioWaveform({
     wave.on("pause", () => setPlaying(false));
     wave.on("finish", () => setPlaying(false));
     return () => wave.destroy();
+  }, []);
+
+  useEffect(() => {
+    if (!audioUrl || !waveRef.current) return;
+    waveRef.current.load(audioUrl);
   }, [audioUrl]);
 
   const togglePlay = useCallback(() => {

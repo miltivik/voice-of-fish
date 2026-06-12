@@ -60,12 +60,8 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
   const persisted = loadWizard();
 
   // Step 1 state
-  const [step, setStep] = useState<OnboardingStep>(
-    persisted?.step ?? "engine",
-  );
-  const [binaryPath, setBinaryPath] = useState(
-    persisted?.binaryPath ?? "",
-  );
+  const [step, setStep] = useState<OnboardingStep>(persisted?.step ?? "engine");
+  const [binaryPath, setBinaryPath] = useState(persisted?.binaryPath ?? "");
   const [engineValid, setEngineValid] = useState(false);
 
   // Step 2 state
@@ -88,7 +84,7 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
     persisted?.outputsPath ?? defaults.outputsPath,
   );
   const [outputValid, setOutputValid] = useState(
-    !!((persisted?.outputsPath ?? defaults.outputsPath).trim()),
+    !!(persisted?.outputsPath ?? defaults.outputsPath).trim(),
   );
 
   const currentIndex = STEP_ORDER.indexOf(step);
@@ -149,7 +145,7 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
         defaultAudioFormat: DEFAULT_APP_CONFIG.defaultAudioFormat,
         cpuThreads: DEFAULT_APP_CONFIG.cpuThreads,
         gpuEnabled: DEFAULT_APP_CONFIG.gpuEnabled,
-        advancedArgs: DEFAULT_APP_CONFIG.advancedArgs,
+        schemaVersion: DEFAULT_APP_CONFIG.schemaVersion,
       });
       clearWizard();
     } catch (e) {
@@ -231,9 +227,7 @@ export function SetupPanel({ onSave }: SetupPanelProps) {
               type="button"
               onClick={handleFinish}
               disabled={!finishEnabled}
-              title={
-                finishEnabled ? undefined : t("onboardingFinishDisabled")
-              }
+              title={finishEnabled ? undefined : t("onboardingFinishDisabled")}
               className="rounded-brutal bg-electric px-5 py-2 text-sm font-semibold text-concrete transition-colors hover:bg-electric/80 disabled:opacity-30"
             >
               {t("onboardingFinish")}

@@ -48,6 +48,7 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
+      "react-hooks/incompatible-library": "off",
     },
   },
 );
