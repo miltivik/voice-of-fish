@@ -150,19 +150,15 @@ describe("useAppStore", () => {
     expect(savedConfig!.binaryPath).toBe(defaultConfig.binaryPath);
   });
 
-  it("setActiveModelAndPersist: no-op when config is undefined", async () => {
-    let called = false;
+  it("setActiveModelAndPersist: throws when config is undefined", async () => {
     setupTauriMocks({
-      save_app_config: () => {
-        called = true;
-        return defaultConfig;
-      },
+      save_app_config: () => defaultConfig,
     });
 
     // config is undefined from beforeEach
-    await useAppStore.getState().setActiveModelAndPersist("ignored");
-
-    expect(called).toBe(false);
+    await expect(
+      useAppStore.getState().setActiveModelAndPersist("ignored"),
+    ).rejects.toThrow(/config hydrated/);
     expect(useAppStore.getState().config).toBeUndefined();
   });
 

@@ -24,22 +24,27 @@ export function AppShell() {
     if (!persistedConfig) return;
     const binaryPath = persistedConfig.binaryPath?.trim();
     if (!binaryPath) {
-      hydrateConfig(persistedConfig);
+      // No binary configured — single setState, no hydrate-then-override.
+      useAppStore.setState({ config: persistedConfig, setupComplete: false });
       return;
     }
     let cancelled = false;
     checkBinaryExists(binaryPath)
       .then((exists) => {
         if (cancelled) return;
-        hydrateConfig(persistedConfig);
-        if (!exists) {
-          useAppStore.setState({ setupComplete: false });
+        if (exists) {
+          // Binary exists — hydrate (sets setupComplete=true).
+          hydrateConfig(persistedConfig);
+        } else {
+          useAppStore.setState({
+            config: persistedConfig,
+            setupComplete: false,
+          });
         }
       })
       .catch(() => {
         if (cancelled) return;
-        hydrateConfig(persistedConfig);
-        useAppStore.setState({ setupComplete: false });
+        useAppStore.setState({ config: persistedConfig, setupComplete: false });
       });
     return () => {
       cancelled = true;

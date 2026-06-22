@@ -35,7 +35,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setActiveModelAndPersist: async (modelId: string) => {
     const previous = get().config;
-    if (!previous) return;
+    if (!previous) {
+      // The hydration effect in AppShell sets `config` before any route
+      // mounts. If this fires, a caller is racing hydration — surface
+      // it as a rejection rather than silently dropping the change.
+      throw new Error("setActiveModelAndPersist called before config hydrated");
+    }
     const updated = { ...previous, defaultModelId: modelId };
     set({ config: updated });
     try {
