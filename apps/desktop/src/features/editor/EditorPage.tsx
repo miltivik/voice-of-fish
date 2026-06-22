@@ -3,99 +3,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { SentenceClip } from "@voice-of-fish/shared";
 import { toast } from "sonner";
 
-import { studioClient, pickFolderPath } from "@/lib/tauri";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LanguageSelect } from "@/components/ui/LanguageSelect";
-
-function formatTime(ms: number): string {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  const millis = Math.floor((ms % 1000) / 10);
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(millis).padStart(2, "0")}`;
-}
-
-/** Split text into max 2 lines, ~42 chars each, at word boundaries. */
-function splitSubtitleLines(text: string, maxLine = 42): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= maxLine) return trimmed;
-
-  let splitAt = maxLine;
-  while (splitAt > 0 && trimmed[splitAt] !== " ") splitAt--;
-  if (splitAt === 0) splitAt = maxLine;
-
-  const first = trimmed.slice(0, splitAt).trim();
-  let second = trimmed.slice(splitAt).trim();
-  if (second.length > maxLine) second = second.slice(0, maxLine) + "…";
-  return `${first}\n${second}`;
-}
-
-function formatSrt(clips: SentenceClip[]): string {
-  return clips
-    .map((clip, i) => {
-      const start = formatTime(clip.startMs).replace(".", ",");
-      const end = formatTime(clip.endMs).replace(".", ",");
-      return `${i + 1}\n${start} --> ${end}\n${splitSubtitleLines(clip.text)}\n`;
-    })
-    .join("\n");
-}
-function ClipItem({
-  clip,
-  i,
-  duration,
-  widthPercent,
-  onUpdateClipText,
-  onPlayAudio,
-}: {
-  clip: SentenceClip;
-  i: number;
-  duration: number;
-  widthPercent: number;
-  totalDuration: number;
-  onUpdateClipText: (index: number, text: string) => void;
-  onPlayAudio: (wavPath: string) => Promise<void> | void;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2">
-      <span className="w-6 text-center text-xs tabular-nums text-concrete-300">
-        {i + 1}
-      </span>
-      <div className="min-w-0 flex-1">
-        <input
-          value={clip.text}
-          onChange={(e) => onUpdateClipText(i, e.target.value)}
-          className="w-full truncate bg-transparent text-sm text-concrete-50 outline-none"
-          aria-label={`Edit subtitle ${i + 1}`}
-        />
-        <p className="mt-0.5 text-xs text-concrete-300">
-          {formatTime(clip.startMs)} → {formatTime(clip.endMs)}
-          {" · "}
-          {duration < 1000
-            ? `${duration}ms`
-            : `${(duration / 1000).toFixed(1)}s`}
-        </p>
-        <button
-          type="button"
-          onClick={() => onPlayAudio(clip.wavPath)}
-          className="shrink-0 rounded-brutal px-2 py-1 text-xs font-medium text-concrete-300 transition-colors hover:bg-glass-heavy hover:text-concrete-50"
-          title="Play clip"
-        >
-          {"▶"}
-        </button>
-        <div
-          className="h-2 rounded-full bg-electric/30"
-          style={{ width: `${widthPercent}%`, maxWidth: 120 }}
-        >
-          <div
-            className="h-full rounded-full bg-electric"
-            style={{ width: "100%" }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+import { studioClient } from "@/lib/tauri";
+import { EditorScriptCard } from "./EditorScriptCard";
+import { EditorTimeline } from "./EditorTimeline";
 
 export function EditorPage() {
   const [script, setScript] = useState("");
@@ -148,6 +58,7 @@ export function EditorPage() {
       toast.error("Cannot load audio file");
     }
   }
+
   const models = useQuery({
     queryKey: ["models"],
     queryFn: studioClient.listLocalModels,
@@ -203,159 +114,31 @@ export function EditorPage() {
           DaVinci Resolve.
         </p>
       </div>
-      {/* Script input */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Script</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <textarea
-            aria-label="Script text"
-            value={script}
-            onChange={(e) => setScript(e.target.value)}
-            rows={8}
-            placeholder={`Welcome to the show. Today we explore artificial intelligence. But first, a word from our sponsor.`}
-            className="flex min-h-[160px] w-full rounded-brutal border border-glass-border bg-concrete-800 px-3 py-2 text-sm text-concrete-50 shadow-sm transition-colors placeholder:text-concrete-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric focus-visible:ring-offset-2 focus-visible:ring-offset-concrete"
-          />
 
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="editor-model"
-                className="text-xs font-medium text-concrete-300"
-              >
-                Model
-              </label>
-              <select
-                id="editor-model"
-                value={modelId}
-                onChange={(e) => setModelId(e.target.value)}
-                className="h-8 rounded-brutal border border-glass-border bg-concrete-800 px-2 text-xs text-concrete-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-electric"
-              >
-                {installedModels.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.quant}
-                  </option>
-                ))}
-              </select>
-            </div>
+      <EditorScriptCard
+        script={script}
+        onScriptChange={setScript}
+        installedModels={installedModels}
+        voicePresets={presets.data ?? []}
+        modelId={modelId}
+        onModelIdChange={setModelId}
+        voicePresetId={voicePresetId}
+        onVoicePresetIdChange={setVoicePresetId}
+        language={language}
+        onLanguageChange={setLanguage}
+        sentenceCount={sentenceCount}
+        isGenerating={generateMutation.isPending}
+        onGenerate={() => generateMutation.mutate()}
+      />
 
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="editor-voice"
-                className="text-xs font-medium text-concrete-300"
-              >
-                Voice
-              </label>
-              <select
-                id="editor-voice"
-                value={voicePresetId}
-                onChange={(e) => setVoicePresetId(e.target.value)}
-                className="h-8 rounded-brutal border border-glass-border bg-concrete-800 px-2 text-xs text-concrete-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-electric"
-              >
-                <option value="">None</option>
-                {(presets.data ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="editor-language"
-                className="text-xs font-medium text-concrete-300"
-              >
-                Language
-              </label>
-              <LanguageSelect
-                id="language"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-              />
-            </div>
-
-            <Button
-              onClick={() => generateMutation.mutate()}
-              disabled={
-                generateMutation.isPending || script.trim().length === 0
-              }
-            >
-              {generateMutation.isPending
-                ? `Generating ${sentenceCount} sentence(s)…`
-                : `Generate ${sentenceCount} sentence(s)`}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Timeline */}
       {clips.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>
-              Timeline · {clips.length} clip(s) · Total{" "}
-              {formatTime(totalDuration)}
-            </CardTitle>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  navigator.clipboard
-                    .writeText(formatSrt(clips))
-                    .catch(() => {});
-                  toast.success("SRT copied to clipboard");
-                }}
-              >
-                Copy SRT
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={async () => {
-                  const dir = await pickFolderPath("Select export folder");
-                  if (!dir) return;
-                  try {
-                    const msg = await studioClient.exportEditorBundle(
-                      clips,
-                      dir,
-                    );
-                    toast.success(msg);
-                  } catch (e) {
-                    toast.error(`Export failed: ${e}`);
-                  }
-                }}
-              >
-                Export for Resolve
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {clips.map((clip, i) => {
-              return (
-                <ClipItem
-                  key={`${regenKey}-${clip.wavPath}-${i}`}
-                  clip={clip}
-                  i={i}
-                  duration={clip.endMs - clip.startMs}
-                  widthPercent={
-                    totalDuration > 0
-                      ? Math.max(
-                          ((clip.endMs - clip.startMs) / totalDuration) * 100,
-                          2,
-                        )
-                      : 100 / clips.length
-                  }
-                  totalDuration={totalDuration}
-                  onUpdateClipText={updateClipText}
-                  onPlayAudio={playClipAudio}
-                />
-              );
-            })}
-          </CardContent>
-        </Card>
+        <EditorTimeline
+          clips={clips}
+          totalDuration={totalDuration}
+          regenKey={regenKey}
+          onUpdateClipText={updateClipText}
+          onPlayAudio={playClipAudio}
+        />
       )}
     </section>
   );
