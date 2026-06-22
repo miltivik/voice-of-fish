@@ -107,10 +107,22 @@ export function useGenerationPolling({
 
   const cancelJob = useCallback(
     async (jobId: string): Promise<void> => {
-      stopPolling();
+      // Capture prior state so the optimistic UI can be rolled back
+      // if the IPC fails. Don't stop polling yet either — if cancel
+      // fails the poll loop still needs to surface the job's real
+      // status (it may finish, error, or hang).
+      const priorGenStatus = useGenerationStore.getState().status;
+      const priorFooterStatus = useAppStore.getState().footerStatus;
       useGenerationStore.getState().setStatus("cancelled");
       useAppStore.getState().setFooterStatus("ready");
-      await studioClient.cancelGeneration(jobId);
+      try {
+        await studioClient.cancelGeneration(jobId);
+        stopPolling();
+      } catch (err) {
+        useGenerationStore.getState().setStatus(priorGenStatus);
+        useAppStore.getState().setFooterStatus(priorFooterStatus);
+        throw err;
+      }
     },
     [stopPolling],
   );
