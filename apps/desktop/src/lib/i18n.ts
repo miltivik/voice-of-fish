@@ -240,17 +240,7 @@ const messages = {
 
 export type MessageKey = keyof typeof messages.en;
 
-export type AppLanguage = "en" | "es";
-
-let currentLanguage: AppLanguage = "en";
-
-export function setLanguage(lang: AppLanguage) {
-  currentLanguage = lang;
-}
-
-export function getLanguage(): AppLanguage {
-  return currentLanguage;
-}
+const currentLanguage: "en" | "es" = "en";
 
 export type GuideLanguage = "es" | "en";
 
