@@ -115,19 +115,22 @@ pub fn validate_export_target(
         return Err(format!("target_dir has an unsafe leaf name: {leaf:?}"));
     }
 
-    // Reject system-sensitive parents. Matched case-insensitively
-    // against canonical path components.
-    // Reject system-sensitive parents in the RAW path the renderer
-    // gave us (a symlink to a sensitive dir still shows up here as
-    // `.ssh`, but `canonicalize` would have followed the symlink
-    // and erased it — so iterate the un-resolved path too).
-    for component in target.components() {
-        let raw = component.as_os_str().to_string_lossy().to_ascii_lowercase();
-        if is_sensitive_export_parent(&raw) {
-            return Err(format!(
-                "target_dir is inside a sensitive system path: {target_dir}"
-            ));
-        }
+    // Reject system-sensitive parents. The check is on the un-resolved
+    // path (the raw renderer input) so symlink tricks like
+    // `/home/john/.ssh/foo` are caught even though `canonicalize`
+    // would follow the symlink and erase the `.ssh` reference.
+    //
+    // Skip past the user's home directory first: the same name can be
+    // sensitive at the system root (e.g. `/Users` on macOS) but a
+    // perfectly normal folder name under `$HOME`. Without the strip,
+    // `/Users/john/Documents/export` would be false-positive rejected
+    // by the `Users` component match — the Editor's "Export for
+    // Resolve" feature was effectively broken on macOS.
+    let home = dirs::home_dir().filter(|p| !p.as_os_str().is_empty());
+    if has_sensitive_component(target, home.as_deref()) {
+        return Err(format!(
+            "target_dir is inside a sensitive system path: {target_dir}"
+        ));
     }
 
     // Resolve outputs_path once and reject if the parent lives inside it.
@@ -140,6 +143,25 @@ pub fn validate_export_target(
     }
 
     Ok(canonical_parent.join(leaf))
+}
+
+/// Returns true if `path` (typically the un-resolved renderer input)
+/// contains a path component matching [`is_sensitive_export_parent`].
+///
+/// When `home` is provided, components that fall under the user's
+/// home directory are skipped — names like `Users`, `Library`, or
+/// `Windows` are only sensitive as top-level system directories, not
+/// as folder names the user happened to create inside their own
+/// profile.
+fn has_sensitive_component(path: &Path, home: Option<&Path>) -> bool {
+    let check_path = match home.and_then(|h| path.strip_prefix(h).ok()) {
+        Some(p) => p,
+        None => path,
+    };
+    check_path.components().any(|c| {
+        let raw = c.as_os_str().to_string_lossy().to_ascii_lowercase();
+        is_sensitive_export_parent(&raw)
+    })
 }
 
 /// Returns true if a single path component (lower-cased basename) is
@@ -157,7 +179,6 @@ fn is_sensitive_export_parent(lower_basename: &str) -> bool {
         "windows" | "programfiles" | "programfiles(x86)" | "users"
     )
 }
-
 // ---------------------------------------------------------------------------
 // Open helpers (C-1, C-2)
 // ---------------------------------------------------------------------------
@@ -735,6 +756,81 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(&tmp);
         let _ = std::fs::remove_dir_all(&outputs);
+    }
+
+    // --- XML escaping ---
+    // --- has_sensitive_component ---
+
+    #[test]
+    fn has_sensitive_component_skips_user_home() {
+        // macOS user path: `Users` is sensitive as a system-root dir but
+        // a normal folder name inside the user's own home.
+        let home = Path::new("/Users/john");
+        let target = Path::new("/Users/john/Documents/export");
+        assert!(!has_sensitive_component(target, Some(home)));
+    }
+
+    #[test]
+    fn has_sensitive_component_flags_sensitive_subdir_under_home() {
+        // The home strip must NOT cover up sensitive subdirs.
+        // `~/.ssh/foo` is still sensitive even though it starts with home.
+        let home = Path::new("/Users/john");
+        let target = Path::new("/Users/john/.ssh/foo");
+        assert!(has_sensitive_component(target, Some(home)));
+    }
+
+    #[test]
+    fn has_sensitive_component_flags_system_sensitive_path() {
+        let target = Path::new("/etc/passwd/foo");
+        assert!(has_sensitive_component(target, None));
+        assert!(has_sensitive_component(target, Some(Path::new("/home/john"))));
+    }
+
+    #[test]
+    fn has_sensitive_component_flags_sensitive_component_in_unrelated_path() {
+        // A user named "users" — the path has a sensitive component
+        // but no home prefix that would strip it.
+        let target = Path::new("/home/users/john/export");
+        assert!(has_sensitive_component(target, Some(Path::new("/home/john"))));
+        assert!(has_sensitive_component(target, None));
+    }
+
+    #[test]
+    fn has_sensitive_component_strips_home_with_matching_user() {
+        // User "users" is the home owner. Their own home path is safe.
+        let target = Path::new("/home/users/john/export");
+        assert!(!has_sensitive_component(target, Some(Path::new("/home/users/john"))));
+    }
+
+    // --- validate_export_target integration ---
+
+    #[test]
+    fn validate_export_target_accepts_legitimate_user_home_path() {
+        // Regression test for B1: the Editor's "Export for Resolve" feature
+        // was rejecting every macOS user path because the un-resolved path
+        // check matched `Users` as a sensitive component. With the home
+        // strip, a path under the test runner's own home is accepted.
+        let Some(home) = dirs::home_dir().filter(|p| !p.as_os_str().is_empty()) else {
+            return; // skip if no home available
+        };
+        let parent = home.join("vof_legit_export_parent");
+        let _ = std::fs::create_dir_all(&parent);
+        let target = parent.join("export");
+        let outputs = home.join("vof_legit_outputs");
+        let _ = std::fs::create_dir_all(&outputs);
+
+        let result = validate_export_target(
+            &outputs.to_string_lossy(),
+            &target.to_string_lossy(),
+        );
+        let _ = std::fs::remove_dir_all(&parent);
+        let _ = std::fs::remove_dir_all(&outputs);
+
+        assert!(
+            result.is_ok(),
+            "legitimate path under home should be accepted: {:?}",
+            result
+        );
     }
 
     // --- XML escaping ---
