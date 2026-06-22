@@ -66,6 +66,12 @@ export function GenerationForm({
     resolver: zodResolver(generationRequestSchema),
     defaultValues: { ...storeDraft },
   });
+  // react-hook-form returns a fresh `{ onChange, onBlur, name, ref }`
+  // object on every call to `register`. Calling it twice for the same
+  // field (once via the spread, once inside the ref callback) creates
+  // two competing registrations, the second wins, but the first can
+  // log a "register/unregister" cycle warning. Capture once and reuse.
+  const textRegister = register("text");
   // Re-sync the form when a HistoryPage retry writes a new draft while
   // this component is already mounted (e.g. SPA navigation reuses the
   // component instance). Without this the form keeps stale values and the
@@ -147,9 +153,9 @@ export function GenerationForm({
             </label>
             <Textarea
               id="script-text"
-              {...register("text")}
+              {...textRegister}
               ref={(element) => {
-                register("text").ref(element);
+                textRegister.ref(element);
                 textareaRef.current = element;
               }}
             />
