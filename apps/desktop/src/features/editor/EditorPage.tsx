@@ -18,6 +18,11 @@ export function EditorPage() {
   // Cleanup audio + revoke blob URLs on unmount.
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  // Monotonic id assigned to each in-flight playClipAudio call. If a newer
+  // call starts while an older `readAudioBytes` is still pending, the older
+  // call revokes its own URL on resolution and aborts — without this, two
+  // racing reads could overwrite `blobUrlRef.current` and leak the first URL.
+  const playRequestIdRef = useRef(0);
   useEffect(() => {
     return () => {
       if (audioRef.current) {
@@ -34,6 +39,7 @@ export function EditorPage() {
   }, []);
 
   async function playClipAudio(wavPath: string) {
+    const myRequestId = ++playRequestIdRef.current;
     try {
       // Destroy previous audio instance to prevent memory leaks.
       if (audioRef.current) {
@@ -48,14 +54,28 @@ export function EditorPage() {
         blobUrlRef.current = null;
       }
       const url = await studioClient.readAudioBytes(wavPath);
+      // A newer call has started while we were waiting on the IPC.
+      // Revoke the URL we just received and bail out — the newer call
+      // already owns the slot.
+      if (myRequestId !== playRequestIdRef.current) {
+        URL.revokeObjectURL(url);
+        return;
+      }
       blobUrlRef.current = url;
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.play().catch(() => {
-        toast.error("Cannot play audio — file may be missing");
+        // Only surface a toast for the still-current request. Stale
+        // requests already revoked their URL and bailed above.
+        if (myRequestId === playRequestIdRef.current) {
+          toast.error("Cannot play audio — file may be missing");
+        }
       });
     } catch {
-      toast.error("Cannot load audio file");
+      // Same guard for the outer catch — a stale call shouldn't toast.
+      if (myRequestId === playRequestIdRef.current) {
+        toast.error("Cannot load audio file");
+      }
     }
   }
 
