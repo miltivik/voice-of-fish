@@ -70,6 +70,14 @@ fn write_records_atomic(path: &std::path::Path, records: &[HistoryRecord]) -> Re
     let tmp_path = path.with_extension("tmp");
     std::fs::write(&tmp_path, json)
         .map_err(|e| format!("failed to write history temp file: {e}"))?;
+    // std::fs::rename is atomic on POSIX but fails on Windows if the
+    // destination exists. Remove the prior file first on Windows so a
+    // re-write of the same path doesn't error out. Mirrors the
+    // workaround in downloads::download_model_file.
+    #[cfg(windows)]
+    {
+        let _ = std::fs::remove_file(path);
+    }
     std::fs::rename(&tmp_path, path)
         .map_err(|e| format!("failed to atomically rename history file: {e}"))?;
 

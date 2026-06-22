@@ -80,6 +80,11 @@ fn write_presets_atomic(path: &std::path::Path, presets: &[VoicePreset]) -> Resu
     let tmp_path = path.with_extension("tmp");
     std::fs::write(&tmp_path, json)
         .map_err(|e| format!("failed to write presets temp file: {e}"))?;
+    // See history::write_records_atomic for the rationale.
+    #[cfg(windows)]
+    {
+        let _ = std::fs::remove_file(path);
+    }
     std::fs::rename(&tmp_path, path)
         .map_err(|e| format!("failed to atomically rename presets file: {e}"))?;
 

@@ -303,12 +303,15 @@ pub fn export_editor_bundle(
     let kdenlive_xml = generate_kdenlive_xml(&validated);
     std::fs::write(target.join("project.kdenlive"), &kdenlive_xml)
         .map_err(|e| format!("failed to write project.kdenlive: {e}"))?;
-
-    let script_src = Path::new("resolve_import.py");
-    if script_src.is_file() {
-        std::fs::copy(script_src, target.join("resolve_import.py"))
-            .map_err(|e| format!("failed to copy script: {e}"))?;
-    }
+    // The DaVinci Resolve import script is embedded at compile time so
+    // the export doesn't depend on the process CWD (Tauri doesn't
+    // guarantee where the Rust binary runs from, and the original
+    // `Path::new("resolve_import.py")` lookup could miss entirely).
+    std::fs::write(
+        target.join("resolve_import.py"),
+        include_str!("../resolve_import.py"),
+    )
+    .map_err(|e| format!("failed to write resolve_import.py: {e}"))?;
 
     Ok(format!("Exported {count} clip(s) to {}", target.display()))
 }

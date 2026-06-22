@@ -196,6 +196,15 @@ pub fn cancel_generation(
             Err(_) => return false,
         };
         if manager.active_job.as_ref().map(|j| &j.id) != Some(&job_id) {
+            // Stale job_id (the active job has already finished, or the
+            // renderer is racing a fresh spawn). Log so a silent `false`
+            // is at least visible in dev. The TS caller can't tell
+            // success from "nothing to cancel" with the current contract.
+            eprintln!(
+                "[cancel_generation] no matching active job for {job_id:?} \
+                 (active={:?})",
+                manager.active_job.as_ref().map(|j| &j.id)
+            );
             return false;
         }
         manager.child.take()
